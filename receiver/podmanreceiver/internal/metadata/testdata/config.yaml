@@ -7,6 +7,8 @@ all_set:
       enabled: true
     container.cpu.percent:
       enabled: true
+    container.cpu.time:
+      enabled: true
     container.cpu.usage.percpu:
       enabled: true
     container.cpu.usage.system:
@@ -39,6 +41,8 @@ none_set:
     container.blockio.io_service_bytes_recursive.write:
       enabled: false
     container.cpu.percent:
+      enabled: false
+    container.cpu.time:
       enabled: false
     container.cpu.usage.percpu:
       enabled: false

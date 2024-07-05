@@ -12,6 +12,32 @@ import (
 	"go.opentelemetry.io/collector/receiver"
 )
 
+// AttributeContainerCPUState specifies the a value container.cpu.state attribute.
+type AttributeContainerCPUState int
+
+const (
+	_ AttributeContainerCPUState = iota
+	AttributeContainerCPUStateUser
+	AttributeContainerCPUStateSystem
+)
+
+// String returns the string representation of the AttributeContainerCPUState.
+func (av AttributeContainerCPUState) String() string {
+	switch av {
+	case AttributeContainerCPUStateUser:
+		return "user"
+	case AttributeContainerCPUStateSystem:
+		return "system"
+	}
+	return ""
+}
+
+// MapAttributeContainerCPUState is a helper map of string to AttributeContainerCPUState attribute value.
+var MapAttributeContainerCPUState = map[string]AttributeContainerCPUState{
+	"user":   AttributeContainerCPUStateUser,
+	"system": AttributeContainerCPUStateSystem,
+}
+
 type metricContainerBlockioIoServiceBytesRecursiveRead struct {
 	data     pmetric.Metric // data buffer for generated metric.
 	config   MetricConfig   // metric config provided by user.
@@ -156,6 +182,59 @@ func (m *metricContainerCPUPercent) emit(metrics pmetric.MetricSlice) {
 
 func newMetricContainerCPUPercent(cfg MetricConfig) metricContainerCPUPercent {
 	m := metricContainerCPUPercent{config: cfg}
+	if cfg.Enabled {
+		m.data = pmetric.NewMetric()
+		m.init()
+	}
+	return m
+}
+
+type metricContainerCPUTime struct {
+	data     pmetric.Metric // data buffer for generated metric.
+	config   MetricConfig   // metric config provided by user.
+	capacity int            // max observed number of data points added to the metric.
+}
+
+// init fills container.cpu.time metric with initial data.
+func (m *metricContainerCPUTime) init() {
+	m.data.SetName("container.cpu.time")
+	m.data.SetDescription("Total CPU time consumed.")
+	m.data.SetUnit("s")
+	m.data.SetEmptySum()
+	m.data.Sum().SetIsMonotonic(true)
+	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
+	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
+}
+
+func (m *metricContainerCPUTime) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val float64, containerCPUStateAttributeValue string) {
+	if !m.config.Enabled {
+		return
+	}
+	dp := m.data.Sum().DataPoints().AppendEmpty()
+	dp.SetStartTimestamp(start)
+	dp.SetTimestamp(ts)
+	dp.SetDoubleValue(val)
+	dp.Attributes().PutStr("container.cpu.state", containerCPUStateAttributeValue)
+}
+
+// updateCapacity saves max length of data point slices that will be used for the slice capacity.
+func (m *metricContainerCPUTime) updateCapacity() {
+	if m.data.Sum().DataPoints().Len() > m.capacity {
+		m.capacity = m.data.Sum().DataPoints().Len()
+	}
+}
+
+// emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
+func (m *metricContainerCPUTime) emit(metrics pmetric.MetricSlice) {
+	if m.config.Enabled && m.data.Sum().DataPoints().Len() > 0 {
+		m.updateCapacity()
+		m.data.MoveTo(metrics.AppendEmpty())
+		m.init()
+	}
+}
+
+func newMetricContainerCPUTime(cfg MetricConfig) metricContainerCPUTime {
+	m := metricContainerCPUTime{config: cfg}
 	if cfg.Enabled {
 		m.data = pmetric.NewMetric()
 		m.init()
@@ -584,6 +663,7 @@ type MetricsBuilder struct {
 	metricContainerBlockioIoServiceBytesRecursiveRead  metricContainerBlockioIoServiceBytesRecursiveRead
 	metricContainerBlockioIoServiceBytesRecursiveWrite metricContainerBlockioIoServiceBytesRecursiveWrite
 	metricContainerCPUPercent                          metricContainerCPUPercent
+	metricContainerCPUTime                             metricContainerCPUTime
 	metricContainerCPUUsagePercpu                      metricContainerCPUUsagePercpu
 	metricContainerCPUUsageSystem                      metricContainerCPUUsageSystem
 	metricContainerCPUUsageTotal                       metricContainerCPUUsageTotal
@@ -613,6 +693,7 @@ func NewMetricsBuilder(mbc MetricsBuilderConfig, settings receiver.Settings, opt
 		metricContainerBlockioIoServiceBytesRecursiveRead:  newMetricContainerBlockioIoServiceBytesRecursiveRead(mbc.Metrics.ContainerBlockioIoServiceBytesRecursiveRead),
 		metricContainerBlockioIoServiceBytesRecursiveWrite: newMetricContainerBlockioIoServiceBytesRecursiveWrite(mbc.Metrics.ContainerBlockioIoServiceBytesRecursiveWrite),
 		metricContainerCPUPercent:                          newMetricContainerCPUPercent(mbc.Metrics.ContainerCPUPercent),
+		metricContainerCPUTime:                             newMetricContainerCPUTime(mbc.Metrics.ContainerCPUTime),
 		metricContainerCPUUsagePercpu:                      newMetricContainerCPUUsagePercpu(mbc.Metrics.ContainerCPUUsagePercpu),
 		metricContainerCPUUsageSystem:                      newMetricContainerCPUUsageSystem(mbc.Metrics.ContainerCPUUsageSystem),
 		metricContainerCPUUsageTotal:                       newMetricContainerCPUUsageTotal(mbc.Metrics.ContainerCPUUsageTotal),
@@ -712,6 +793,7 @@ func (mb *MetricsBuilder) EmitForResource(rmo ...ResourceMetricsOption) {
 	mb.metricContainerBlockioIoServiceBytesRecursiveRead.emit(ils.Metrics())
 	mb.metricContainerBlockioIoServiceBytesRecursiveWrite.emit(ils.Metrics())
 	mb.metricContainerCPUPercent.emit(ils.Metrics())
+	mb.metricContainerCPUTime.emit(ils.Metrics())
 	mb.metricContainerCPUUsagePercpu.emit(ils.Metrics())
 	mb.metricContainerCPUUsageSystem.emit(ils.Metrics())
 	mb.metricContainerCPUUsageTotal.emit(ils.Metrics())
@@ -764,6 +846,11 @@ func (mb *MetricsBuilder) RecordContainerBlockioIoServiceBytesRecursiveWriteData
 // RecordContainerCPUPercentDataPoint adds a data point to container.cpu.percent metric.
 func (mb *MetricsBuilder) RecordContainerCPUPercentDataPoint(ts pcommon.Timestamp, val float64) {
 	mb.metricContainerCPUPercent.recordDataPoint(mb.startTime, ts, val)
+}
+
+// RecordContainerCPUTimeDataPoint adds a data point to container.cpu.time metric.
+func (mb *MetricsBuilder) RecordContainerCPUTimeDataPoint(ts pcommon.Timestamp, val float64, containerCPUStateAttributeValue AttributeContainerCPUState) {
+	mb.metricContainerCPUTime.recordDataPoint(mb.startTime, ts, val, containerCPUStateAttributeValue.String())
 }
 
 // RecordContainerCPUUsagePercpuDataPoint adds a data point to container.cpu.usage.percpu metric.

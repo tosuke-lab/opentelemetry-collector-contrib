@@ -32,9 +32,23 @@ attributes:
   core:
     description: "The CPU core number when utilising per-CPU metrics."
     type: string
+  container.cpu.state:
+    description: "The CPU state for the data point."
+    type: string
+    enum: [user, system]
 
 metrics:
   # CPU
+  container.cpu.time:
+    enabled: true
+    description: "Total CPU time consumed by the container since its creation."
+    unit: s
+    sum:
+      value_type: double
+      monotonic: true
+      aggregation_temporality: cumulative
+    attributes:
+      - container.cpu.state
   container.cpu.usage.system:
     enabled: true
     description: "System CPU usage."

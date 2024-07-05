@@ -82,6 +82,10 @@ func TestMetricsBuilder(t *testing.T) {
 
 			defaultMetricsCount++
 			allMetricsCount++
+			mb.RecordContainerCPUTimeDataPoint(ts, 1, AttributeContainerCPUStateUser)
+
+			defaultMetricsCount++
+			allMetricsCount++
 			mb.RecordContainerCPUUsagePercpuDataPoint(ts, 1, "core-val")
 
 			defaultMetricsCount++
@@ -179,6 +183,23 @@ func TestMetricsBuilder(t *testing.T) {
 					assert.Equal(t, ts, dp.Timestamp())
 					assert.Equal(t, pmetric.NumberDataPointValueTypeDouble, dp.ValueType())
 					assert.Equal(t, float64(1), dp.DoubleValue())
+				case "container.cpu.time":
+					assert.False(t, validatedMetrics["container.cpu.time"], "Found a duplicate in the metrics slice: container.cpu.time")
+					validatedMetrics["container.cpu.time"] = true
+					assert.Equal(t, pmetric.MetricTypeSum, ms.At(i).Type())
+					assert.Equal(t, 1, ms.At(i).Sum().DataPoints().Len())
+					assert.Equal(t, "Total CPU time consumed.", ms.At(i).Description())
+					assert.Equal(t, "s", ms.At(i).Unit())
+					assert.Equal(t, true, ms.At(i).Sum().IsMonotonic())
+					assert.Equal(t, pmetric.AggregationTemporalityCumulative, ms.At(i).Sum().AggregationTemporality())
+					dp := ms.At(i).Sum().DataPoints().At(0)
+					assert.Equal(t, start, dp.StartTimestamp())
+					assert.Equal(t, ts, dp.Timestamp())
+					assert.Equal(t, pmetric.NumberDataPointValueTypeDouble, dp.ValueType())
+					assert.Equal(t, float64(1), dp.DoubleValue())
+					attrVal, ok := dp.Attributes().Get("container.cpu.state")
+					assert.True(t, ok)
+					assert.EqualValues(t, "user", attrVal.Str())
 				case "container.cpu.usage.percpu":
 					assert.False(t, validatedMetrics["container.cpu.usage.percpu"], "Found a duplicate in the metrics slice: container.cpu.usage.percpu")
 					validatedMetrics["container.cpu.usage.percpu"] = true

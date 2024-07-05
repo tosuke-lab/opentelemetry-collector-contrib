@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/podmanreceiver/internal/metadata"
 	"github.com/stretchr/testify/assert"
 	"go.opentelemetry.io/collector/pdata/pmetric"
 )
@@ -16,6 +17,7 @@ import (
 type point struct {
 	intVal     uint64
 	doubleVal  float64
+	epsilon    float64
 	attributes map[string]string
 }
 
@@ -38,7 +40,7 @@ func assertStatsEqualToMetrics(t *testing.T, podmanStats *containerStats, md pme
 	assert.Equal(t, rsm.ScopeMetrics().Len(), 1)
 
 	metrics := rsm.ScopeMetrics().At(0).Metrics()
-	assert.Equal(t, metrics.Len(), 11)
+	assert.Equal(t, metrics.Len(), 12)
 
 	for i := 0; i < metrics.Len(); i++ {
 		m := metrics.At(i)
@@ -71,6 +73,23 @@ func assertStatsEqualToMetrics(t *testing.T, podmanStats *containerStats, md pme
 				points[i] = point{intVal: toSecondsWithNanosecondPrecision(v), attributes: map[string]string{"core": fmt.Sprintf("cpu%d", i)}}
 			}
 			assertMetricEqual(t, m, pmetric.MetricTypeSum, points)
+		case "container.cpu.time":
+			assertMetricEqual(t, m, pmetric.MetricTypeSum, []point{
+				{
+					doubleVal:  float64(podmanStats.CPUNano-podmanStats.CPUSystemNano) / 1e9,
+					epsilon:    1e-9,
+					attributes: map[string]string{
+                        "container.cpu.state": string(metadata.AttributeContainerCPUStateUser),
+                    },
+				},
+				{
+					doubleVal:  float64(podmanStats.CPUSystemNano) / 1e9,
+					epsilon:    1e-9,
+					attributes: map[string]string{
+                        "container.cpu.state": string(metadata.AttributeContainerCPUStateSystem),
+                    },
+				},
+			})
 
 		default:
 			t.Errorf(fmt.Sprintf("unexpected metric: %s", m.Name()))
@@ -79,6 +98,8 @@ func assertStatsEqualToMetrics(t *testing.T, podmanStats *containerStats, md pme
 }
 
 func assertMetricEqual(t *testing.T, m pmetric.Metric, dt pmetric.MetricType, pts []point) {
+	t.Helper()
+
 	assert.Equal(t, m.Type(), dt)
 	switch dt {
 	case pmetric.MetricTypeGauge:
@@ -99,11 +120,17 @@ func assertMetricEqual(t *testing.T, m pmetric.Metric, dt pmetric.MetricType, pt
 }
 
 func assertPoints(t *testing.T, dpts pmetric.NumberDataPointSlice, pts []point) {
+	t.Helper()
+
 	assert.Equal(t, dpts.Len(), len(pts))
 	for i, expected := range pts {
 		got := dpts.At(i)
 		assert.Equal(t, got.IntValue(), int64(expected.intVal))
-		assert.Equal(t, got.DoubleValue(), expected.doubleVal)
+		if expected.epsilon != 0 {
+			assert.InEpsilon(t, got.DoubleValue(), expected.doubleVal, expected.epsilon)
+		} else {
+			assert.Equal(t, got.DoubleValue(), expected.doubleVal)
+		}
 		for k, expectedV := range expected.attributes {
 			gotV, exists := got.Attributes().Get(k)
 			assert.True(t, exists)

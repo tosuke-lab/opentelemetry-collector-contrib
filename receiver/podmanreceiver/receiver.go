@@ -157,6 +157,13 @@ func (r *metricsReceiver) recordCPUMetrics(now pcommon.Timestamp, stats *contain
 	for i, cpu := range stats.PerCPU {
 		r.mb.RecordContainerCPUUsagePercpuDataPoint(now, int64(toSecondsWithNanosecondPrecision(cpu)), fmt.Sprintf("cpu%d", i))
 	}
+
+	r.mb.RecordContainerCPUTimeDataPoint(now,
+        toSecondsWithNanosecondPrecisionF(stats.CPUNano-stats.CPUSystemNano),
+        metadata.AttributeContainerCPUStateUser)
+	r.mb.RecordContainerCPUTimeDataPoint(now,
+        toSecondsWithNanosecondPrecisionF(stats.CPUSystemNano),
+        metadata.AttributeContainerCPUStateSystem)
 }
 
 func (r *metricsReceiver) recordNetworkMetrics(now pcommon.Timestamp, stats *containerStats) {
@@ -178,4 +185,8 @@ func (r *metricsReceiver) recordIOMetrics(now pcommon.Timestamp, stats *containe
 // nanoseconds to seconds conversion truncating the fractional part
 func toSecondsWithNanosecondPrecision(nanoseconds uint64) uint64 {
 	return nanoseconds / 1e9
+}
+
+func toSecondsWithNanosecondPrecisionF(nanoseconds uint64) float64 {
+	return float64(nanoseconds) / 1e9
 }

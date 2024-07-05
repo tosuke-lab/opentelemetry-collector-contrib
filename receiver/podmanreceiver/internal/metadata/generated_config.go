@@ -31,6 +31,7 @@ type MetricsConfig struct {
 	ContainerBlockioIoServiceBytesRecursiveRead  MetricConfig `mapstructure:"container.blockio.io_service_bytes_recursive.read"`
 	ContainerBlockioIoServiceBytesRecursiveWrite MetricConfig `mapstructure:"container.blockio.io_service_bytes_recursive.write"`
 	ContainerCPUPercent                          MetricConfig `mapstructure:"container.cpu.percent"`
+	ContainerCPUTime                             MetricConfig `mapstructure:"container.cpu.time"`
 	ContainerCPUUsagePercpu                      MetricConfig `mapstructure:"container.cpu.usage.percpu"`
 	ContainerCPUUsageSystem                      MetricConfig `mapstructure:"container.cpu.usage.system"`
 	ContainerCPUUsageTotal                       MetricConfig `mapstructure:"container.cpu.usage.total"`
@@ -50,6 +51,9 @@ func DefaultMetricsConfig() MetricsConfig {
 			Enabled: true,
 		},
 		ContainerCPUPercent: MetricConfig{
+			Enabled: true,
+		},
+		ContainerCPUTime: MetricConfig{
 			Enabled: true,
 		},
 		ContainerCPUUsagePercpu: MetricConfig{

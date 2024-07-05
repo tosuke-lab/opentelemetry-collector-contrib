@@ -40,6 +40,20 @@ Percent of CPU used by the container.
 | ---- | ----------- | ---------- |
 | 1 | Gauge | Double |
 
+### container.cpu.time
+
+Total CPU time consumed.
+
+| Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic |
+| ---- | ----------- | ---------- | ----------------------- | --------- |
+| s | Sum | Double | Cumulative | true |
+
+#### Attributes
+
+| Name | Description | Values |
+| ---- | ----------- | ------ |
+| container.cpu.state | The CPU state | Str: ``user``, ``system`` |
+
 ### container.cpu.usage.percpu
 
 Total CPU time consumed per CPU-core.
