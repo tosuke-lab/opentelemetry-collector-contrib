@@ -17,6 +17,8 @@ all_set:
       enabled: true
     container.memory.percent:
       enabled: true
+    container.memory.usage:
+      enabled: true
     container.memory.usage.limit:
       enabled: true
     container.memory.usage.total:
@@ -51,6 +53,8 @@ none_set:
     container.cpu.usage.total:
       enabled: false
     container.memory.percent:
+      enabled: false
+    container.memory.usage:
       enabled: false
     container.memory.usage.limit:
       enabled: false

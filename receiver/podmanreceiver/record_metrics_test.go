@@ -9,9 +9,10 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/podmanreceiver/internal/metadata"
 	"github.com/stretchr/testify/assert"
 	"go.opentelemetry.io/collector/pdata/pmetric"
+
+	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/podmanreceiver/internal/metadata"
 )
 
 type point struct {
@@ -40,13 +41,15 @@ func assertStatsEqualToMetrics(t *testing.T, podmanStats *containerStats, md pme
 	assert.Equal(t, rsm.ScopeMetrics().Len(), 1)
 
 	metrics := rsm.ScopeMetrics().At(0).Metrics()
-	assert.Equal(t, metrics.Len(), 12)
+	assert.Equal(t, metrics.Len(), 13)
 
 	for i := 0; i < metrics.Len(); i++ {
 		m := metrics.At(i)
 		switch m.Name() {
 		case "container.memory.usage.limit":
 			assertMetricEqual(t, m, pmetric.MetricTypeSum, []point{{intVal: podmanStats.MemLimit}})
+		case "container.memory.usage":
+			assertMetricEqual(t, m, pmetric.MetricTypeSum, []point{{intVal: podmanStats.MemUsage}})
 		case "container.memory.usage.total":
 			assertMetricEqual(t, m, pmetric.MetricTypeSum, []point{{intVal: podmanStats.MemUsage}})
 		case "container.memory.percent":
@@ -76,18 +79,18 @@ func assertStatsEqualToMetrics(t *testing.T, podmanStats *containerStats, md pme
 		case "container.cpu.time":
 			assertMetricEqual(t, m, pmetric.MetricTypeSum, []point{
 				{
-					doubleVal:  float64(podmanStats.CPUNano-podmanStats.CPUSystemNano) / 1e9,
-					epsilon:    1e-9,
+					doubleVal: float64(podmanStats.CPUNano-podmanStats.CPUSystemNano) / 1e9,
+					epsilon:   1e-9,
 					attributes: map[string]string{
-                        "container.cpu.state": string(metadata.AttributeContainerCPUStateUser),
-                    },
+						"container.cpu.state": metadata.AttributeContainerCPUStateUser.String(),
+					},
 				},
 				{
-					doubleVal:  float64(podmanStats.CPUSystemNano) / 1e9,
-					epsilon:    1e-9,
+					doubleVal: float64(podmanStats.CPUSystemNano) / 1e9,
+					epsilon:   1e-9,
 					attributes: map[string]string{
-                        "container.cpu.state": string(metadata.AttributeContainerCPUStateSystem),
-                    },
+						"container.cpu.state": metadata.AttributeContainerCPUStateSystem.String(),
+					},
 				},
 			})
 

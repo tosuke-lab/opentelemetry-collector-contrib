@@ -36,6 +36,7 @@ type MetricsConfig struct {
 	ContainerCPUUsageSystem                      MetricConfig `mapstructure:"container.cpu.usage.system"`
 	ContainerCPUUsageTotal                       MetricConfig `mapstructure:"container.cpu.usage.total"`
 	ContainerMemoryPercent                       MetricConfig `mapstructure:"container.memory.percent"`
+	ContainerMemoryUsage                         MetricConfig `mapstructure:"container.memory.usage"`
 	ContainerMemoryUsageLimit                    MetricConfig `mapstructure:"container.memory.usage.limit"`
 	ContainerMemoryUsageTotal                    MetricConfig `mapstructure:"container.memory.usage.total"`
 	ContainerNetworkIoUsageRxBytes               MetricConfig `mapstructure:"container.network.io.usage.rx_bytes"`
@@ -66,6 +67,9 @@ func DefaultMetricsConfig() MetricsConfig {
 			Enabled: true,
 		},
 		ContainerMemoryPercent: MetricConfig{
+			Enabled: true,
+		},
+		ContainerMemoryUsage: MetricConfig{
 			Enabled: true,
 		},
 		ContainerMemoryUsageLimit: MetricConfig{

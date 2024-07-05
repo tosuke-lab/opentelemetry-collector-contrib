@@ -102,6 +102,10 @@ func TestMetricsBuilder(t *testing.T) {
 
 			defaultMetricsCount++
 			allMetricsCount++
+			mb.RecordContainerMemoryUsageDataPoint(ts, 1)
+
+			defaultMetricsCount++
+			allMetricsCount++
 			mb.RecordContainerMemoryUsageLimitDataPoint(ts, 1)
 
 			defaultMetricsCount++
@@ -188,7 +192,7 @@ func TestMetricsBuilder(t *testing.T) {
 					validatedMetrics["container.cpu.time"] = true
 					assert.Equal(t, pmetric.MetricTypeSum, ms.At(i).Type())
 					assert.Equal(t, 1, ms.At(i).Sum().DataPoints().Len())
-					assert.Equal(t, "Total CPU time consumed.", ms.At(i).Description())
+					assert.Equal(t, "Total CPU time consumed by the container since its creation.", ms.At(i).Description())
 					assert.Equal(t, "s", ms.At(i).Unit())
 					assert.Equal(t, true, ms.At(i).Sum().IsMonotonic())
 					assert.Equal(t, pmetric.AggregationTemporalityCumulative, ms.At(i).Sum().AggregationTemporality())
@@ -257,6 +261,20 @@ func TestMetricsBuilder(t *testing.T) {
 					assert.Equal(t, ts, dp.Timestamp())
 					assert.Equal(t, pmetric.NumberDataPointValueTypeDouble, dp.ValueType())
 					assert.Equal(t, float64(1), dp.DoubleValue())
+				case "container.memory.usage":
+					assert.False(t, validatedMetrics["container.memory.usage"], "Found a duplicate in the metrics slice: container.memory.usage")
+					validatedMetrics["container.memory.usage"] = true
+					assert.Equal(t, pmetric.MetricTypeSum, ms.At(i).Type())
+					assert.Equal(t, 1, ms.At(i).Sum().DataPoints().Len())
+					assert.Equal(t, "Memory usage of the container.", ms.At(i).Description())
+					assert.Equal(t, "By", ms.At(i).Unit())
+					assert.Equal(t, false, ms.At(i).Sum().IsMonotonic())
+					assert.Equal(t, pmetric.AggregationTemporalityCumulative, ms.At(i).Sum().AggregationTemporality())
+					dp := ms.At(i).Sum().DataPoints().At(0)
+					assert.Equal(t, start, dp.StartTimestamp())
+					assert.Equal(t, ts, dp.Timestamp())
+					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+					assert.Equal(t, int64(1), dp.IntValue())
 				case "container.memory.usage.limit":
 					assert.False(t, validatedMetrics["container.memory.usage.limit"], "Found a duplicate in the metrics slice: container.memory.usage.limit")
 					validatedMetrics["container.memory.usage.limit"] = true

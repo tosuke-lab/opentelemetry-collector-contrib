@@ -42,7 +42,7 @@ Percent of CPU used by the container.
 
 ### container.cpu.time
 
-Total CPU time consumed.
+Total CPU time consumed by the container since its creation.
 
 | Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic |
 | ---- | ----------- | ---------- | ----------------------- | --------- |
@@ -52,7 +52,7 @@ Total CPU time consumed.
 
 | Name | Description | Values |
 | ---- | ----------- | ------ |
-| container.cpu.state | The CPU state | Str: ``user``, ``system`` |
+| container.cpu.state | The CPU state for the data point. | Str: ``user``, ``system`` |
 
 ### container.cpu.usage.percpu
 
@@ -91,6 +91,14 @@ Percentage of memory used.
 | Unit | Metric Type | Value Type |
 | ---- | ----------- | ---------- |
 | 1 | Gauge | Double |
+
+### container.memory.usage
+
+Memory usage of the container.
+
+| Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic |
+| ---- | ----------- | ---------- | ----------------------- | --------- |
+| By | Sum | Int | Cumulative | false |
 
 ### container.memory.usage.limit
 

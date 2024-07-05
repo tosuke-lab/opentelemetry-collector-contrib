@@ -82,6 +82,14 @@ metrics:
     gauge:
       value_type: double
   # Memory
+  container.memory.usage:
+    enabled: true
+    description: "Memory usage of the container."
+    unit: By
+    sum:
+      value_type: int
+      aggregation_temporality: cumulative
+      monotonic: false
   container.memory.usage.limit:
     enabled: true
     description: "Memory limit of the container."

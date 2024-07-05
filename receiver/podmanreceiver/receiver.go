@@ -159,11 +159,11 @@ func (r *metricsReceiver) recordCPUMetrics(now pcommon.Timestamp, stats *contain
 	}
 
 	r.mb.RecordContainerCPUTimeDataPoint(now,
-        toSecondsWithNanosecondPrecisionF(stats.CPUNano-stats.CPUSystemNano),
-        metadata.AttributeContainerCPUStateUser)
+		toSecondsWithNanosecondPrecisionF(stats.CPUNano-stats.CPUSystemNano),
+		metadata.AttributeContainerCPUStateUser)
 	r.mb.RecordContainerCPUTimeDataPoint(now,
-        toSecondsWithNanosecondPrecisionF(stats.CPUSystemNano),
-        metadata.AttributeContainerCPUStateSystem)
+		toSecondsWithNanosecondPrecisionF(stats.CPUSystemNano),
+		metadata.AttributeContainerCPUStateSystem)
 }
 
 func (r *metricsReceiver) recordNetworkMetrics(now pcommon.Timestamp, stats *containerStats) {
@@ -173,6 +173,7 @@ func (r *metricsReceiver) recordNetworkMetrics(now pcommon.Timestamp, stats *con
 
 func (r *metricsReceiver) recordMemoryMetrics(now pcommon.Timestamp, stats *containerStats) {
 	r.mb.RecordContainerMemoryUsageTotalDataPoint(now, int64(stats.MemUsage))
+	r.mb.RecordContainerMemoryUsageDataPoint(now, int64(stats.MemUsage))
 	r.mb.RecordContainerMemoryUsageLimitDataPoint(now, int64(stats.MemLimit))
 	r.mb.RecordContainerMemoryPercentDataPoint(now, stats.MemPerc)
 }
