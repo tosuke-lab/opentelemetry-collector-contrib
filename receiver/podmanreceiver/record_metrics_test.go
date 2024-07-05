@@ -41,7 +41,7 @@ func assertStatsEqualToMetrics(t *testing.T, podmanStats *containerStats, md pme
 	assert.Equal(t, rsm.ScopeMetrics().Len(), 1)
 
 	metrics := rsm.ScopeMetrics().At(0).Metrics()
-	assert.Equal(t, metrics.Len(), 13)
+	assert.Equal(t, metrics.Len(), 14)
 
 	for i := 0; i < metrics.Len(); i++ {
 		m := metrics.At(i)
@@ -55,9 +55,24 @@ func assertStatsEqualToMetrics(t *testing.T, podmanStats *containerStats, md pme
 		case "container.memory.percent":
 			assertMetricEqual(t, m, pmetric.MetricTypeGauge, []point{{doubleVal: podmanStats.MemPerc}})
 		case "container.network.io.usage.tx_bytes":
-			assertMetricEqual(t, m, pmetric.MetricTypeSum, []point{{intVal: podmanStats.NetInput}})
-		case "container.network.io.usage.rx_bytes":
 			assertMetricEqual(t, m, pmetric.MetricTypeSum, []point{{intVal: podmanStats.NetOutput}})
+		case "container.network.io.usage.rx_bytes":
+			assertMetricEqual(t, m, pmetric.MetricTypeSum, []point{{intVal: podmanStats.NetInput}})
+		case "container.network.io":
+			assertMetricEqual(t, m, pmetric.MetricTypeSum, []point{
+				{
+					intVal: podmanStats.NetOutput,
+					attributes: map[string]string{
+						"network.io.direction": metadata.AttributeNetworkIoDirectionTransmit.String(),
+					},
+				},
+				{
+					intVal: podmanStats.NetInput,
+					attributes: map[string]string{
+						"network.io.direction": metadata.AttributeNetworkIoDirectionReceive.String(),
+					},
+				},
+			})
 
 		case "container.blockio.io_service_bytes_recursive.write":
 			assertMetricEqual(t, m, pmetric.MetricTypeSum, []point{{intVal: podmanStats.BlockOutput}})

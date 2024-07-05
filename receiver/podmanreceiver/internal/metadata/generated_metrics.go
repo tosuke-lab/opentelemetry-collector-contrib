@@ -38,6 +38,32 @@ var MapAttributeContainerCPUState = map[string]AttributeContainerCPUState{
 	"system": AttributeContainerCPUStateSystem,
 }
 
+// AttributeNetworkIoDirection specifies the a value network.io.direction attribute.
+type AttributeNetworkIoDirection int
+
+const (
+	_ AttributeNetworkIoDirection = iota
+	AttributeNetworkIoDirectionTransmit
+	AttributeNetworkIoDirectionReceive
+)
+
+// String returns the string representation of the AttributeNetworkIoDirection.
+func (av AttributeNetworkIoDirection) String() string {
+	switch av {
+	case AttributeNetworkIoDirectionTransmit:
+		return "transmit"
+	case AttributeNetworkIoDirectionReceive:
+		return "receive"
+	}
+	return ""
+}
+
+// MapAttributeNetworkIoDirection is a helper map of string to AttributeNetworkIoDirection attribute value.
+var MapAttributeNetworkIoDirection = map[string]AttributeNetworkIoDirection{
+	"transmit": AttributeNetworkIoDirectionTransmit,
+	"receive":  AttributeNetworkIoDirectionReceive,
+}
+
 type metricContainerBlockioIoServiceBytesRecursiveRead struct {
 	data     pmetric.Metric // data buffer for generated metric.
 	config   MetricConfig   // metric config provided by user.
@@ -599,6 +625,59 @@ func newMetricContainerMemoryUsageTotal(cfg MetricConfig) metricContainerMemoryU
 	return m
 }
 
+type metricContainerNetworkIo struct {
+	data     pmetric.Metric // data buffer for generated metric.
+	config   MetricConfig   // metric config provided by user.
+	capacity int            // max observed number of data points added to the metric.
+}
+
+// init fills container.network.io metric with initial data.
+func (m *metricContainerNetworkIo) init() {
+	m.data.SetName("container.network.io")
+	m.data.SetDescription("Network bytes for the container.")
+	m.data.SetUnit("By")
+	m.data.SetEmptySum()
+	m.data.Sum().SetIsMonotonic(true)
+	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
+	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
+}
+
+func (m *metricContainerNetworkIo) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, networkIoDirectionAttributeValue string) {
+	if !m.config.Enabled {
+		return
+	}
+	dp := m.data.Sum().DataPoints().AppendEmpty()
+	dp.SetStartTimestamp(start)
+	dp.SetTimestamp(ts)
+	dp.SetIntValue(val)
+	dp.Attributes().PutStr("network.io.direction", networkIoDirectionAttributeValue)
+}
+
+// updateCapacity saves max length of data point slices that will be used for the slice capacity.
+func (m *metricContainerNetworkIo) updateCapacity() {
+	if m.data.Sum().DataPoints().Len() > m.capacity {
+		m.capacity = m.data.Sum().DataPoints().Len()
+	}
+}
+
+// emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
+func (m *metricContainerNetworkIo) emit(metrics pmetric.MetricSlice) {
+	if m.config.Enabled && m.data.Sum().DataPoints().Len() > 0 {
+		m.updateCapacity()
+		m.data.MoveTo(metrics.AppendEmpty())
+		m.init()
+	}
+}
+
+func newMetricContainerNetworkIo(cfg MetricConfig) metricContainerNetworkIo {
+	m := metricContainerNetworkIo{config: cfg}
+	if cfg.Enabled {
+		m.data = pmetric.NewMetric()
+		m.init()
+	}
+	return m
+}
+
 type metricContainerNetworkIoUsageRxBytes struct {
 	data     pmetric.Metric // data buffer for generated metric.
 	config   MetricConfig   // metric config provided by user.
@@ -722,6 +801,7 @@ type MetricsBuilder struct {
 	metricContainerMemoryUsage                         metricContainerMemoryUsage
 	metricContainerMemoryUsageLimit                    metricContainerMemoryUsageLimit
 	metricContainerMemoryUsageTotal                    metricContainerMemoryUsageTotal
+	metricContainerNetworkIo                           metricContainerNetworkIo
 	metricContainerNetworkIoUsageRxBytes               metricContainerNetworkIoUsageRxBytes
 	metricContainerNetworkIoUsageTxBytes               metricContainerNetworkIoUsageTxBytes
 }
@@ -753,6 +833,7 @@ func NewMetricsBuilder(mbc MetricsBuilderConfig, settings receiver.Settings, opt
 		metricContainerMemoryUsage:                         newMetricContainerMemoryUsage(mbc.Metrics.ContainerMemoryUsage),
 		metricContainerMemoryUsageLimit:                    newMetricContainerMemoryUsageLimit(mbc.Metrics.ContainerMemoryUsageLimit),
 		metricContainerMemoryUsageTotal:                    newMetricContainerMemoryUsageTotal(mbc.Metrics.ContainerMemoryUsageTotal),
+		metricContainerNetworkIo:                           newMetricContainerNetworkIo(mbc.Metrics.ContainerNetworkIo),
 		metricContainerNetworkIoUsageRxBytes:               newMetricContainerNetworkIoUsageRxBytes(mbc.Metrics.ContainerNetworkIoUsageRxBytes),
 		metricContainerNetworkIoUsageTxBytes:               newMetricContainerNetworkIoUsageTxBytes(mbc.Metrics.ContainerNetworkIoUsageTxBytes),
 		resourceAttributeIncludeFilter:                     make(map[string]filter.Filter),
@@ -854,6 +935,7 @@ func (mb *MetricsBuilder) EmitForResource(rmo ...ResourceMetricsOption) {
 	mb.metricContainerMemoryUsage.emit(ils.Metrics())
 	mb.metricContainerMemoryUsageLimit.emit(ils.Metrics())
 	mb.metricContainerMemoryUsageTotal.emit(ils.Metrics())
+	mb.metricContainerNetworkIo.emit(ils.Metrics())
 	mb.metricContainerNetworkIoUsageRxBytes.emit(ils.Metrics())
 	mb.metricContainerNetworkIoUsageTxBytes.emit(ils.Metrics())
 
@@ -940,6 +1022,11 @@ func (mb *MetricsBuilder) RecordContainerMemoryUsageLimitDataPoint(ts pcommon.Ti
 // RecordContainerMemoryUsageTotalDataPoint adds a data point to container.memory.usage.total metric.
 func (mb *MetricsBuilder) RecordContainerMemoryUsageTotalDataPoint(ts pcommon.Timestamp, val int64) {
 	mb.metricContainerMemoryUsageTotal.recordDataPoint(mb.startTime, ts, val)
+}
+
+// RecordContainerNetworkIoDataPoint adds a data point to container.network.io metric.
+func (mb *MetricsBuilder) RecordContainerNetworkIoDataPoint(ts pcommon.Timestamp, val int64, networkIoDirectionAttributeValue AttributeNetworkIoDirection) {
+	mb.metricContainerNetworkIo.recordDataPoint(mb.startTime, ts, val, networkIoDirectionAttributeValue.String())
 }
 
 // RecordContainerNetworkIoUsageRxBytesDataPoint adds a data point to container.network.io.usage.rx_bytes metric.

@@ -23,6 +23,8 @@ all_set:
       enabled: true
     container.memory.usage.total:
       enabled: true
+    container.network.io:
+      enabled: true
     container.network.io.usage.rx_bytes:
       enabled: true
     container.network.io.usage.tx_bytes:
@@ -59,6 +61,8 @@ none_set:
     container.memory.usage.limit:
       enabled: false
     container.memory.usage.total:
+      enabled: false
+    container.network.io:
       enabled: false
     container.network.io.usage.rx_bytes:
       enabled: false

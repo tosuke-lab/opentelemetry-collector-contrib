@@ -116,6 +116,20 @@ Memory usage of the container.
 | ---- | ----------- | ---------- | ----------------------- | --------- |
 | By | Sum | Int | Cumulative | false |
 
+### container.network.io
+
+Network bytes for the container.
+
+| Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic |
+| ---- | ----------- | ---------- | ----------------------- | --------- |
+| By | Sum | Int | Cumulative | true |
+
+#### Attributes
+
+| Name | Description | Values |
+| ---- | ----------- | ------ |
+| network.io.direction | The network IO operation direction. | Str: ``transmit``, ``receive`` |
+
 ### container.network.io.usage.rx_bytes
 
 Bytes received by the container.
