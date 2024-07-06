@@ -184,6 +184,9 @@ func (r *metricsReceiver) recordMemoryMetrics(now pcommon.Timestamp, stats *cont
 func (r *metricsReceiver) recordIOMetrics(now pcommon.Timestamp, stats *containerStats) {
 	r.mb.RecordContainerBlockioIoServiceBytesRecursiveReadDataPoint(now, int64(stats.BlockInput))
 	r.mb.RecordContainerBlockioIoServiceBytesRecursiveWriteDataPoint(now, int64(stats.BlockOutput))
+
+	r.mb.RecordContainerDiskIoDataPoint(now, int64(stats.BlockInput), metadata.AttributeDirectionRead)
+	r.mb.RecordContainerDiskIoDataPoint(now, int64(stats.BlockOutput), metadata.AttributeDirectionWrite)
 }
 
 // nanoseconds to seconds conversion truncating the fractional part

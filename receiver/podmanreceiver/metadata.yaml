@@ -39,7 +39,7 @@ attributes:
   direction:
     description: "The direction data is moving."
     type: string
-    enum: [transmit, receive]
+    enum: [transmit, receive, read, write]
 
 metrics:
   # CPU
@@ -144,6 +144,17 @@ metrics:
       monotonic: true
       aggregation_temporality: cumulative
   # BlockIO
+  container.disk.io:
+    enabled: true
+    description: "Disk bytes for the container."
+    extended_documentation: "[More docs](https://www.kernel.org/doc/Documentation/cgroup-v1/blkio-controller.txt)."
+    unit: By
+    sum:
+      value_type: int
+      monotonic: true
+      aggregation_temporality: cumulative
+    attributes:
+      - direction
   container.blockio.io_service_bytes_recursive.read:
     enabled: true
     description: "Number of bytes transferred from the disk by the container"

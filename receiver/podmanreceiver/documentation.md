@@ -84,6 +84,22 @@ Total CPU time consumed.
 | ---- | ----------- | ---------- | ----------------------- | --------- |
 | s | Sum | Int | Cumulative | true |
 
+### container.disk.io
+
+Disk bytes for the container.
+
+[More docs](https://www.kernel.org/doc/Documentation/cgroup-v1/blkio-controller.txt).
+
+| Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic |
+| ---- | ----------- | ---------- | ----------------------- | --------- |
+| By | Sum | Int | Cumulative | true |
+
+#### Attributes
+
+| Name | Description | Values |
+| ---- | ----------- | ------ |
+| direction | The direction data is moving. | Str: ``transmit``, ``receive``, ``read``, ``write`` |
+
 ### container.memory.percent
 
 Percentage of memory used.
@@ -128,7 +144,7 @@ Network bytes for the container.
 
 | Name | Description | Values |
 | ---- | ----------- | ------ |
-| direction | The direction data is moving. | Str: ``transmit``, ``receive`` |
+| direction | The direction data is moving. | Str: ``transmit``, ``receive``, ``read``, ``write`` |
 
 ### container.network.io.usage.rx_bytes
 

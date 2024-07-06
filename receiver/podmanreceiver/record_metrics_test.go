@@ -41,7 +41,7 @@ func assertStatsEqualToMetrics(t *testing.T, podmanStats *containerStats, md pme
 	assert.Equal(t, rsm.ScopeMetrics().Len(), 1)
 
 	metrics := rsm.ScopeMetrics().At(0).Metrics()
-	assert.Equal(t, metrics.Len(), 14)
+	assert.Equal(t, metrics.Len(), 15)
 
 	for i := 0; i < metrics.Len(); i++ {
 		m := metrics.At(i)
@@ -70,6 +70,17 @@ func assertStatsEqualToMetrics(t *testing.T, podmanStats *containerStats, md pme
 				},
 			})
 
+		case "container.disk.io":
+			assertMetricEqual(t, m, pmetric.MetricTypeSum, []point{
+				{
+					intVal:     podmanStats.BlockInput,
+					attributes: map[string]string{"direction": metadata.AttributeDirectionRead.String()},
+				},
+				{
+					intVal:     podmanStats.BlockOutput,
+					attributes: map[string]string{"direction": metadata.AttributeDirectionWrite.String()},
+				},
+			})
 		case "container.blockio.io_service_bytes_recursive.write":
 			assertMetricEqual(t, m, pmetric.MetricTypeSum, []point{{intVal: podmanStats.BlockOutput}})
 		case "container.blockio.io_service_bytes_recursive.read":

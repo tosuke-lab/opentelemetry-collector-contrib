@@ -19,6 +19,8 @@ const (
 	_ AttributeDirection = iota
 	AttributeDirectionTransmit
 	AttributeDirectionReceive
+	AttributeDirectionRead
+	AttributeDirectionWrite
 )
 
 // String returns the string representation of the AttributeDirection.
@@ -28,6 +30,10 @@ func (av AttributeDirection) String() string {
 		return "transmit"
 	case AttributeDirectionReceive:
 		return "receive"
+	case AttributeDirectionRead:
+		return "read"
+	case AttributeDirectionWrite:
+		return "write"
 	}
 	return ""
 }
@@ -36,6 +42,8 @@ func (av AttributeDirection) String() string {
 var MapAttributeDirection = map[string]AttributeDirection{
 	"transmit": AttributeDirectionTransmit,
 	"receive":  AttributeDirectionReceive,
+	"read":     AttributeDirectionRead,
+	"write":    AttributeDirectionWrite,
 }
 
 // AttributeState specifies the a value state attribute.
@@ -423,6 +431,59 @@ func newMetricContainerCPUUsageTotal(cfg MetricConfig) metricContainerCPUUsageTo
 	return m
 }
 
+type metricContainerDiskIo struct {
+	data     pmetric.Metric // data buffer for generated metric.
+	config   MetricConfig   // metric config provided by user.
+	capacity int            // max observed number of data points added to the metric.
+}
+
+// init fills container.disk.io metric with initial data.
+func (m *metricContainerDiskIo) init() {
+	m.data.SetName("container.disk.io")
+	m.data.SetDescription("Disk bytes for the container.")
+	m.data.SetUnit("By")
+	m.data.SetEmptySum()
+	m.data.Sum().SetIsMonotonic(true)
+	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
+	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
+}
+
+func (m *metricContainerDiskIo) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, directionAttributeValue string) {
+	if !m.config.Enabled {
+		return
+	}
+	dp := m.data.Sum().DataPoints().AppendEmpty()
+	dp.SetStartTimestamp(start)
+	dp.SetTimestamp(ts)
+	dp.SetIntValue(val)
+	dp.Attributes().PutStr("direction", directionAttributeValue)
+}
+
+// updateCapacity saves max length of data point slices that will be used for the slice capacity.
+func (m *metricContainerDiskIo) updateCapacity() {
+	if m.data.Sum().DataPoints().Len() > m.capacity {
+		m.capacity = m.data.Sum().DataPoints().Len()
+	}
+}
+
+// emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
+func (m *metricContainerDiskIo) emit(metrics pmetric.MetricSlice) {
+	if m.config.Enabled && m.data.Sum().DataPoints().Len() > 0 {
+		m.updateCapacity()
+		m.data.MoveTo(metrics.AppendEmpty())
+		m.init()
+	}
+}
+
+func newMetricContainerDiskIo(cfg MetricConfig) metricContainerDiskIo {
+	m := metricContainerDiskIo{config: cfg}
+	if cfg.Enabled {
+		m.data = pmetric.NewMetric()
+		m.init()
+	}
+	return m
+}
+
 type metricContainerMemoryPercent struct {
 	data     pmetric.Metric // data buffer for generated metric.
 	config   MetricConfig   // metric config provided by user.
@@ -797,6 +858,7 @@ type MetricsBuilder struct {
 	metricContainerCPUUsagePercpu                      metricContainerCPUUsagePercpu
 	metricContainerCPUUsageSystem                      metricContainerCPUUsageSystem
 	metricContainerCPUUsageTotal                       metricContainerCPUUsageTotal
+	metricContainerDiskIo                              metricContainerDiskIo
 	metricContainerMemoryPercent                       metricContainerMemoryPercent
 	metricContainerMemoryUsage                         metricContainerMemoryUsage
 	metricContainerMemoryUsageLimit                    metricContainerMemoryUsageLimit
@@ -829,6 +891,7 @@ func NewMetricsBuilder(mbc MetricsBuilderConfig, settings receiver.Settings, opt
 		metricContainerCPUUsagePercpu:                      newMetricContainerCPUUsagePercpu(mbc.Metrics.ContainerCPUUsagePercpu),
 		metricContainerCPUUsageSystem:                      newMetricContainerCPUUsageSystem(mbc.Metrics.ContainerCPUUsageSystem),
 		metricContainerCPUUsageTotal:                       newMetricContainerCPUUsageTotal(mbc.Metrics.ContainerCPUUsageTotal),
+		metricContainerDiskIo:                              newMetricContainerDiskIo(mbc.Metrics.ContainerDiskIo),
 		metricContainerMemoryPercent:                       newMetricContainerMemoryPercent(mbc.Metrics.ContainerMemoryPercent),
 		metricContainerMemoryUsage:                         newMetricContainerMemoryUsage(mbc.Metrics.ContainerMemoryUsage),
 		metricContainerMemoryUsageLimit:                    newMetricContainerMemoryUsageLimit(mbc.Metrics.ContainerMemoryUsageLimit),
@@ -931,6 +994,7 @@ func (mb *MetricsBuilder) EmitForResource(rmo ...ResourceMetricsOption) {
 	mb.metricContainerCPUUsagePercpu.emit(ils.Metrics())
 	mb.metricContainerCPUUsageSystem.emit(ils.Metrics())
 	mb.metricContainerCPUUsageTotal.emit(ils.Metrics())
+	mb.metricContainerDiskIo.emit(ils.Metrics())
 	mb.metricContainerMemoryPercent.emit(ils.Metrics())
 	mb.metricContainerMemoryUsage.emit(ils.Metrics())
 	mb.metricContainerMemoryUsageLimit.emit(ils.Metrics())
@@ -1002,6 +1066,11 @@ func (mb *MetricsBuilder) RecordContainerCPUUsageSystemDataPoint(ts pcommon.Time
 // RecordContainerCPUUsageTotalDataPoint adds a data point to container.cpu.usage.total metric.
 func (mb *MetricsBuilder) RecordContainerCPUUsageTotalDataPoint(ts pcommon.Timestamp, val int64) {
 	mb.metricContainerCPUUsageTotal.recordDataPoint(mb.startTime, ts, val)
+}
+
+// RecordContainerDiskIoDataPoint adds a data point to container.disk.io metric.
+func (mb *MetricsBuilder) RecordContainerDiskIoDataPoint(ts pcommon.Timestamp, val int64, directionAttributeValue AttributeDirection) {
+	mb.metricContainerDiskIo.recordDataPoint(mb.startTime, ts, val, directionAttributeValue.String())
 }
 
 // RecordContainerMemoryPercentDataPoint adds a data point to container.memory.percent metric.
