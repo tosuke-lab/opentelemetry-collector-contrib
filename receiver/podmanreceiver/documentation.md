@@ -52,7 +52,7 @@ Total CPU time consumed by the container since its creation.
 
 | Name | Description | Values |
 | ---- | ----------- | ------ |
-| container.cpu.state | The CPU state for the data point. | Str: ``user``, ``system`` |
+| state | The CPU state for the data point. | Str: ``user``, ``system`` |
 
 ### container.cpu.usage.percpu
 
@@ -128,7 +128,7 @@ Network bytes for the container.
 
 | Name | Description | Values |
 | ---- | ----------- | ------ |
-| network.io.direction | The network IO operation direction. | Str: ``transmit``, ``receive`` |
+| direction | The direction data is moving. | Str: ``transmit``, ``receive`` |
 
 ### container.network.io.usage.rx_bytes
 

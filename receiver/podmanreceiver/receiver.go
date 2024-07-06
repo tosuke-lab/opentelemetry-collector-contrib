@@ -160,18 +160,18 @@ func (r *metricsReceiver) recordCPUMetrics(now pcommon.Timestamp, stats *contain
 
 	r.mb.RecordContainerCPUTimeDataPoint(now,
 		toSecondsWithNanosecondPrecisionF(stats.CPUNano-stats.CPUSystemNano),
-		metadata.AttributeContainerCPUStateUser)
+		metadata.AttributeStateUser)
 	r.mb.RecordContainerCPUTimeDataPoint(now,
 		toSecondsWithNanosecondPrecisionF(stats.CPUSystemNano),
-		metadata.AttributeContainerCPUStateSystem)
+		metadata.AttributeStateSystem)
 }
 
 func (r *metricsReceiver) recordNetworkMetrics(now pcommon.Timestamp, stats *containerStats) {
 	r.mb.RecordContainerNetworkIoUsageRxBytesDataPoint(now, int64(stats.NetInput))
 	r.mb.RecordContainerNetworkIoUsageTxBytesDataPoint(now, int64(stats.NetOutput))
 
-	r.mb.RecordContainerNetworkIoDataPoint(now, int64(stats.NetOutput), metadata.AttributeNetworkIoDirectionTransmit)
-	r.mb.RecordContainerNetworkIoDataPoint(now, int64(stats.NetInput), metadata.AttributeNetworkIoDirectionReceive)
+	r.mb.RecordContainerNetworkIoDataPoint(now, int64(stats.NetOutput), metadata.AttributeDirectionTransmit)
+	r.mb.RecordContainerNetworkIoDataPoint(now, int64(stats.NetInput), metadata.AttributeDirectionReceive)
 }
 
 func (r *metricsReceiver) recordMemoryMetrics(now pcommon.Timestamp, stats *containerStats) {

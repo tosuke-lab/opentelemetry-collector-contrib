@@ -61,16 +61,12 @@ func assertStatsEqualToMetrics(t *testing.T, podmanStats *containerStats, md pme
 		case "container.network.io":
 			assertMetricEqual(t, m, pmetric.MetricTypeSum, []point{
 				{
-					intVal: podmanStats.NetOutput,
-					attributes: map[string]string{
-						"network.io.direction": metadata.AttributeNetworkIoDirectionTransmit.String(),
-					},
+					intVal:     podmanStats.NetOutput,
+					attributes: map[string]string{"direction": metadata.AttributeDirectionTransmit.String()},
 				},
 				{
-					intVal: podmanStats.NetInput,
-					attributes: map[string]string{
-						"network.io.direction": metadata.AttributeNetworkIoDirectionReceive.String(),
-					},
+					intVal:     podmanStats.NetInput,
+					attributes: map[string]string{"direction": metadata.AttributeDirectionReceive.String()},
 				},
 			})
 
@@ -94,18 +90,14 @@ func assertStatsEqualToMetrics(t *testing.T, podmanStats *containerStats, md pme
 		case "container.cpu.time":
 			assertMetricEqual(t, m, pmetric.MetricTypeSum, []point{
 				{
-					doubleVal: float64(podmanStats.CPUNano-podmanStats.CPUSystemNano) / 1e9,
-					epsilon:   1e-9,
-					attributes: map[string]string{
-						"container.cpu.state": metadata.AttributeContainerCPUStateUser.String(),
-					},
+					doubleVal:  float64(podmanStats.CPUNano-podmanStats.CPUSystemNano) / 1e9,
+					epsilon:    1e-9,
+					attributes: map[string]string{"state": metadata.AttributeStateUser.String()},
 				},
 				{
-					doubleVal: float64(podmanStats.CPUSystemNano) / 1e9,
-					epsilon:   1e-9,
-					attributes: map[string]string{
-						"container.cpu.state": metadata.AttributeContainerCPUStateSystem.String(),
-					},
+					doubleVal:  float64(podmanStats.CPUSystemNano) / 1e9,
+					epsilon:    1e-9,
+					attributes: map[string]string{"state": metadata.AttributeStateSystem.String()},
 				},
 			})
 

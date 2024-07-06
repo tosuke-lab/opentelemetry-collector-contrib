@@ -82,7 +82,7 @@ func TestMetricsBuilder(t *testing.T) {
 
 			defaultMetricsCount++
 			allMetricsCount++
-			mb.RecordContainerCPUTimeDataPoint(ts, 1, AttributeContainerCPUStateUser)
+			mb.RecordContainerCPUTimeDataPoint(ts, 1, AttributeStateUser)
 
 			defaultMetricsCount++
 			allMetricsCount++
@@ -114,7 +114,7 @@ func TestMetricsBuilder(t *testing.T) {
 
 			defaultMetricsCount++
 			allMetricsCount++
-			mb.RecordContainerNetworkIoDataPoint(ts, 1, AttributeNetworkIoDirectionTransmit)
+			mb.RecordContainerNetworkIoDataPoint(ts, 1, AttributeDirectionTransmit)
 
 			defaultMetricsCount++
 			allMetricsCount++
@@ -205,7 +205,7 @@ func TestMetricsBuilder(t *testing.T) {
 					assert.Equal(t, ts, dp.Timestamp())
 					assert.Equal(t, pmetric.NumberDataPointValueTypeDouble, dp.ValueType())
 					assert.Equal(t, float64(1), dp.DoubleValue())
-					attrVal, ok := dp.Attributes().Get("container.cpu.state")
+					attrVal, ok := dp.Attributes().Get("state")
 					assert.True(t, ok)
 					assert.EqualValues(t, "user", attrVal.Str())
 				case "container.cpu.usage.percpu":
@@ -321,7 +321,7 @@ func TestMetricsBuilder(t *testing.T) {
 					assert.Equal(t, ts, dp.Timestamp())
 					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
 					assert.Equal(t, int64(1), dp.IntValue())
-					attrVal, ok := dp.Attributes().Get("network.io.direction")
+					attrVal, ok := dp.Attributes().Get("direction")
 					assert.True(t, ok)
 					assert.EqualValues(t, "transmit", attrVal.Str())
 				case "container.network.io.usage.rx_bytes":

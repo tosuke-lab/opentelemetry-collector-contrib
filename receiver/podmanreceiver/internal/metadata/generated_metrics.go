@@ -12,56 +12,56 @@ import (
 	"go.opentelemetry.io/collector/receiver"
 )
 
-// AttributeContainerCPUState specifies the a value container.cpu.state attribute.
-type AttributeContainerCPUState int
+// AttributeDirection specifies the a value direction attribute.
+type AttributeDirection int
 
 const (
-	_ AttributeContainerCPUState = iota
-	AttributeContainerCPUStateUser
-	AttributeContainerCPUStateSystem
+	_ AttributeDirection = iota
+	AttributeDirectionTransmit
+	AttributeDirectionReceive
 )
 
-// String returns the string representation of the AttributeContainerCPUState.
-func (av AttributeContainerCPUState) String() string {
+// String returns the string representation of the AttributeDirection.
+func (av AttributeDirection) String() string {
 	switch av {
-	case AttributeContainerCPUStateUser:
-		return "user"
-	case AttributeContainerCPUStateSystem:
-		return "system"
-	}
-	return ""
-}
-
-// MapAttributeContainerCPUState is a helper map of string to AttributeContainerCPUState attribute value.
-var MapAttributeContainerCPUState = map[string]AttributeContainerCPUState{
-	"user":   AttributeContainerCPUStateUser,
-	"system": AttributeContainerCPUStateSystem,
-}
-
-// AttributeNetworkIoDirection specifies the a value network.io.direction attribute.
-type AttributeNetworkIoDirection int
-
-const (
-	_ AttributeNetworkIoDirection = iota
-	AttributeNetworkIoDirectionTransmit
-	AttributeNetworkIoDirectionReceive
-)
-
-// String returns the string representation of the AttributeNetworkIoDirection.
-func (av AttributeNetworkIoDirection) String() string {
-	switch av {
-	case AttributeNetworkIoDirectionTransmit:
+	case AttributeDirectionTransmit:
 		return "transmit"
-	case AttributeNetworkIoDirectionReceive:
+	case AttributeDirectionReceive:
 		return "receive"
 	}
 	return ""
 }
 
-// MapAttributeNetworkIoDirection is a helper map of string to AttributeNetworkIoDirection attribute value.
-var MapAttributeNetworkIoDirection = map[string]AttributeNetworkIoDirection{
-	"transmit": AttributeNetworkIoDirectionTransmit,
-	"receive":  AttributeNetworkIoDirectionReceive,
+// MapAttributeDirection is a helper map of string to AttributeDirection attribute value.
+var MapAttributeDirection = map[string]AttributeDirection{
+	"transmit": AttributeDirectionTransmit,
+	"receive":  AttributeDirectionReceive,
+}
+
+// AttributeState specifies the a value state attribute.
+type AttributeState int
+
+const (
+	_ AttributeState = iota
+	AttributeStateUser
+	AttributeStateSystem
+)
+
+// String returns the string representation of the AttributeState.
+func (av AttributeState) String() string {
+	switch av {
+	case AttributeStateUser:
+		return "user"
+	case AttributeStateSystem:
+		return "system"
+	}
+	return ""
+}
+
+// MapAttributeState is a helper map of string to AttributeState attribute value.
+var MapAttributeState = map[string]AttributeState{
+	"user":   AttributeStateUser,
+	"system": AttributeStateSystem,
 }
 
 type metricContainerBlockioIoServiceBytesRecursiveRead struct {
@@ -232,7 +232,7 @@ func (m *metricContainerCPUTime) init() {
 	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
 }
 
-func (m *metricContainerCPUTime) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val float64, containerCPUStateAttributeValue string) {
+func (m *metricContainerCPUTime) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val float64, stateAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
@@ -240,7 +240,7 @@ func (m *metricContainerCPUTime) recordDataPoint(start pcommon.Timestamp, ts pco
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(ts)
 	dp.SetDoubleValue(val)
-	dp.Attributes().PutStr("container.cpu.state", containerCPUStateAttributeValue)
+	dp.Attributes().PutStr("state", stateAttributeValue)
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
@@ -642,7 +642,7 @@ func (m *metricContainerNetworkIo) init() {
 	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
 }
 
-func (m *metricContainerNetworkIo) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, networkIoDirectionAttributeValue string) {
+func (m *metricContainerNetworkIo) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, directionAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
@@ -650,7 +650,7 @@ func (m *metricContainerNetworkIo) recordDataPoint(start pcommon.Timestamp, ts p
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(ts)
 	dp.SetIntValue(val)
-	dp.Attributes().PutStr("network.io.direction", networkIoDirectionAttributeValue)
+	dp.Attributes().PutStr("direction", directionAttributeValue)
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
@@ -985,8 +985,8 @@ func (mb *MetricsBuilder) RecordContainerCPUPercentDataPoint(ts pcommon.Timestam
 }
 
 // RecordContainerCPUTimeDataPoint adds a data point to container.cpu.time metric.
-func (mb *MetricsBuilder) RecordContainerCPUTimeDataPoint(ts pcommon.Timestamp, val float64, containerCPUStateAttributeValue AttributeContainerCPUState) {
-	mb.metricContainerCPUTime.recordDataPoint(mb.startTime, ts, val, containerCPUStateAttributeValue.String())
+func (mb *MetricsBuilder) RecordContainerCPUTimeDataPoint(ts pcommon.Timestamp, val float64, stateAttributeValue AttributeState) {
+	mb.metricContainerCPUTime.recordDataPoint(mb.startTime, ts, val, stateAttributeValue.String())
 }
 
 // RecordContainerCPUUsagePercpuDataPoint adds a data point to container.cpu.usage.percpu metric.
@@ -1025,8 +1025,8 @@ func (mb *MetricsBuilder) RecordContainerMemoryUsageTotalDataPoint(ts pcommon.Ti
 }
 
 // RecordContainerNetworkIoDataPoint adds a data point to container.network.io metric.
-func (mb *MetricsBuilder) RecordContainerNetworkIoDataPoint(ts pcommon.Timestamp, val int64, networkIoDirectionAttributeValue AttributeNetworkIoDirection) {
-	mb.metricContainerNetworkIo.recordDataPoint(mb.startTime, ts, val, networkIoDirectionAttributeValue.String())
+func (mb *MetricsBuilder) RecordContainerNetworkIoDataPoint(ts pcommon.Timestamp, val int64, directionAttributeValue AttributeDirection) {
+	mb.metricContainerNetworkIo.recordDataPoint(mb.startTime, ts, val, directionAttributeValue.String())
 }
 
 // RecordContainerNetworkIoUsageRxBytesDataPoint adds a data point to container.network.io.usage.rx_bytes metric.
