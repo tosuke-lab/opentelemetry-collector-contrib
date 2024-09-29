@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	jsoniter "github.com/json-iterator/go"
 	"go.uber.org/zap"
@@ -177,6 +178,9 @@ func (operator *Input) parseJournalEntry(line []byte) (*entry.Entry, string, err
 	if err != nil {
 		return nil, "", err
 	}
+	if err := parseJournalJSONObject(&body); err != nil {
+		return nil, "", err
+	}
 
 	timestamp, ok := body["__REALTIME_TIMESTAMP"]
 	if !ok {
@@ -221,4 +225,58 @@ func (operator *Input) Stop() error {
 	}
 	operator.wg.Wait()
 	return nil
+}
+
+func parseJournalJSONObject(o *map[string]any) error {
+	if o == nil {
+		return nil
+	}
+	for k, v := range *o {
+		if s, ok := v.([]any); ok {
+			newV, err := parseJournalJSONArray(s)
+			if err != nil {
+				return err
+			}
+			(*o)[k] = newV
+		}
+	}
+	return nil
+}
+
+func parseJournalJSONArray(s []any) (any, error) {
+	if str, ok := parseJournalBinaryString(s); ok {
+		return str, nil
+	}
+	res := make([]any, 0, len(s))
+	for _, v := range s {
+		if vs, ok := v.([]any); ok {
+			newV, err := parseJournalJSONArray(vs)
+			if err != nil {
+				return nil, err
+			}
+			res = append(res, newV)
+		} else {
+			res = append(res, v)
+		}
+	}
+	return res, nil
+}
+
+func parseJournalBinaryString(s []any) (string, bool) {
+	b := make([]byte, len(s))
+	for i, v := range s {
+		f, ok := v.(float64)
+		if !ok {
+			return "", false
+		}
+		c := byte(f)
+		if float64(c) != f {
+			return "", false
+		}
+		b[i] = c
+	}
+	if !utf8.Valid(b) {
+		return "", false
+	}
+	return string(b), true
 }
