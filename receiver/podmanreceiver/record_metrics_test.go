@@ -11,11 +11,14 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"go.opentelemetry.io/collector/pdata/pmetric"
+
+	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/podmanreceiver/internal/metadata"
 )
 
 type point struct {
 	intVal     uint64
 	doubleVal  float64
+	epsilon    float64
 	attributes map[string]string
 }
 
@@ -38,22 +41,46 @@ func assertStatsEqualToMetrics(t *testing.T, podmanStats *containerStats, md pme
 	assert.Equal(t, 1, rsm.ScopeMetrics().Len())
 
 	metrics := rsm.ScopeMetrics().At(0).Metrics()
-	assert.Equal(t, 11, metrics.Len())
+	assert.Equal(t, 15, metrics.Len())
 
 	for i := 0; i < metrics.Len(); i++ {
 		m := metrics.At(i)
 		switch m.Name() {
 		case "container.memory.usage.limit":
 			assertMetricEqual(t, m, pmetric.MetricTypeSum, []point{{intVal: podmanStats.MemLimit}})
+		case "container.memory.usage":
+			assertMetricEqual(t, m, pmetric.MetricTypeSum, []point{{intVal: podmanStats.MemUsage}})
 		case "container.memory.usage.total":
 			assertMetricEqual(t, m, pmetric.MetricTypeSum, []point{{intVal: podmanStats.MemUsage}})
 		case "container.memory.percent":
 			assertMetricEqual(t, m, pmetric.MetricTypeGauge, []point{{doubleVal: podmanStats.MemPerc}})
 		case "container.network.io.usage.tx_bytes":
-			assertMetricEqual(t, m, pmetric.MetricTypeSum, []point{{intVal: podmanStats.NetInput}})
-		case "container.network.io.usage.rx_bytes":
 			assertMetricEqual(t, m, pmetric.MetricTypeSum, []point{{intVal: podmanStats.NetOutput}})
+		case "container.network.io.usage.rx_bytes":
+			assertMetricEqual(t, m, pmetric.MetricTypeSum, []point{{intVal: podmanStats.NetInput}})
+		case "container.network.io":
+			assertMetricEqual(t, m, pmetric.MetricTypeSum, []point{
+				{
+					intVal:     podmanStats.NetOutput,
+					attributes: map[string]string{"direction": metadata.AttributeDirectionTransmit.String()},
+				},
+				{
+					intVal:     podmanStats.NetInput,
+					attributes: map[string]string{"direction": metadata.AttributeDirectionReceive.String()},
+				},
+			})
 
+		case "container.disk.io":
+			assertMetricEqual(t, m, pmetric.MetricTypeSum, []point{
+				{
+					intVal:     podmanStats.BlockInput,
+					attributes: map[string]string{"direction": metadata.AttributeDirectionRead.String()},
+				},
+				{
+					intVal:     podmanStats.BlockOutput,
+					attributes: map[string]string{"direction": metadata.AttributeDirectionWrite.String()},
+				},
+			})
 		case "container.blockio.io_service_bytes_recursive.write":
 			assertMetricEqual(t, m, pmetric.MetricTypeSum, []point{{intVal: podmanStats.BlockOutput}})
 		case "container.blockio.io_service_bytes_recursive.read":
@@ -71,6 +98,19 @@ func assertStatsEqualToMetrics(t *testing.T, podmanStats *containerStats, md pme
 				points[i] = point{intVal: toSecondsWithNanosecondPrecision(v), attributes: map[string]string{"core": fmt.Sprintf("cpu%d", i)}}
 			}
 			assertMetricEqual(t, m, pmetric.MetricTypeSum, points)
+		case "container.cpu.time":
+			assertMetricEqual(t, m, pmetric.MetricTypeSum, []point{
+				{
+					doubleVal:  float64(podmanStats.CPUNano-podmanStats.CPUSystemNano) / 1e9,
+					epsilon:    1e-9,
+					attributes: map[string]string{"state": metadata.AttributeStateUser.String()},
+				},
+				{
+					doubleVal:  float64(podmanStats.CPUSystemNano) / 1e9,
+					epsilon:    1e-9,
+					attributes: map[string]string{"state": metadata.AttributeStateSystem.String()},
+				},
+			})
 
 		default:
 			t.Errorf("unexpected metric: %s", m.Name())
@@ -79,6 +119,8 @@ func assertStatsEqualToMetrics(t *testing.T, podmanStats *containerStats, md pme
 }
 
 func assertMetricEqual(t *testing.T, m pmetric.Metric, dt pmetric.MetricType, pts []point) {
+	t.Helper()
+
 	assert.Equal(t, m.Type(), dt)
 	switch dt {
 	case pmetric.MetricTypeGauge:
@@ -99,11 +141,18 @@ func assertMetricEqual(t *testing.T, m pmetric.Metric, dt pmetric.MetricType, pt
 }
 
 func assertPoints(t *testing.T, dpts pmetric.NumberDataPointSlice, pts []point) {
+	t.Helper()
+
 	assert.Len(t, pts, dpts.Len())
+
 	for i, expected := range pts {
 		got := dpts.At(i)
 		assert.Equal(t, got.IntValue(), int64(expected.intVal))
-		assert.Equal(t, expected.doubleVal, got.DoubleValue())
+		if expected.epsilon != 0 {
+			assert.InEpsilon(t, expected.doubleVal, got.DoubleValue(), expected.epsilon)
+		} else {
+			assert.Equal(t, expected.doubleVal, got.DoubleValue())
+		}
 		for k, expectedV := range expected.attributes {
 			gotV, exists := got.Attributes().Get(k)
 			assert.True(t, exists)

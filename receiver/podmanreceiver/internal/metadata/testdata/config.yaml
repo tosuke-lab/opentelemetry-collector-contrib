@@ -7,17 +7,25 @@ all_set:
       enabled: true
     container.cpu.percent:
       enabled: true
+    container.cpu.time:
+      enabled: true
     container.cpu.usage.percpu:
       enabled: true
     container.cpu.usage.system:
       enabled: true
     container.cpu.usage.total:
       enabled: true
+    container.disk.io:
+      enabled: true
     container.memory.percent:
+      enabled: true
+    container.memory.usage:
       enabled: true
     container.memory.usage.limit:
       enabled: true
     container.memory.usage.total:
+      enabled: true
+    container.network.io:
       enabled: true
     container.network.io.usage.rx_bytes:
       enabled: true
@@ -40,17 +48,25 @@ none_set:
       enabled: false
     container.cpu.percent:
       enabled: false
+    container.cpu.time:
+      enabled: false
     container.cpu.usage.percpu:
       enabled: false
     container.cpu.usage.system:
       enabled: false
     container.cpu.usage.total:
       enabled: false
+    container.disk.io:
+      enabled: false
     container.memory.percent:
+      enabled: false
+    container.memory.usage:
       enabled: false
     container.memory.usage.limit:
       enabled: false
     container.memory.usage.total:
+      enabled: false
+    container.network.io:
       enabled: false
     container.network.io.usage.rx_bytes:
       enabled: false

@@ -40,6 +40,20 @@ Percent of CPU used by the container.
 | ---- | ----------- | ---------- |
 | 1 | Gauge | Double |
 
+### container.cpu.time
+
+Total CPU time consumed by the container since its creation.
+
+| Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic |
+| ---- | ----------- | ---------- | ----------------------- | --------- |
+| s | Sum | Double | Cumulative | true |
+
+#### Attributes
+
+| Name | Description | Values |
+| ---- | ----------- | ------ |
+| state | The CPU state for the data point. | Str: ``user``, ``system`` |
+
 ### container.cpu.usage.percpu
 
 Total CPU time consumed per CPU-core.
@@ -70,6 +84,22 @@ Total CPU time consumed.
 | ---- | ----------- | ---------- | ----------------------- | --------- |
 | s | Sum | Int | Cumulative | true |
 
+### container.disk.io
+
+Disk bytes for the container.
+
+[More docs](https://www.kernel.org/doc/Documentation/cgroup-v1/blkio-controller.txt).
+
+| Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic |
+| ---- | ----------- | ---------- | ----------------------- | --------- |
+| By | Sum | Int | Cumulative | true |
+
+#### Attributes
+
+| Name | Description | Values |
+| ---- | ----------- | ------ |
+| direction | The direction data is moving. | Str: ``transmit``, ``receive``, ``read``, ``write`` |
+
 ### container.memory.percent
 
 Percentage of memory used.
@@ -77,6 +107,14 @@ Percentage of memory used.
 | Unit | Metric Type | Value Type |
 | ---- | ----------- | ---------- |
 | 1 | Gauge | Double |
+
+### container.memory.usage
+
+Memory usage of the container.
+
+| Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic |
+| ---- | ----------- | ---------- | ----------------------- | --------- |
+| By | Sum | Int | Cumulative | false |
 
 ### container.memory.usage.limit
 
@@ -93,6 +131,20 @@ Memory usage of the container.
 | Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic |
 | ---- | ----------- | ---------- | ----------------------- | --------- |
 | By | Sum | Int | Cumulative | false |
+
+### container.network.io
+
+Network bytes for the container.
+
+| Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic |
+| ---- | ----------- | ---------- | ----------------------- | --------- |
+| By | Sum | Int | Cumulative | true |
+
+#### Attributes
+
+| Name | Description | Values |
+| ---- | ----------- | ------ |
+| direction | The direction data is moving. | Str: ``transmit``, ``receive``, ``read``, ``write`` |
 
 ### container.network.io.usage.rx_bytes
 

@@ -12,6 +12,66 @@ import (
 	"go.opentelemetry.io/collector/receiver"
 )
 
+// AttributeDirection specifies the a value direction attribute.
+type AttributeDirection int
+
+const (
+	_ AttributeDirection = iota
+	AttributeDirectionTransmit
+	AttributeDirectionReceive
+	AttributeDirectionRead
+	AttributeDirectionWrite
+)
+
+// String returns the string representation of the AttributeDirection.
+func (av AttributeDirection) String() string {
+	switch av {
+	case AttributeDirectionTransmit:
+		return "transmit"
+	case AttributeDirectionReceive:
+		return "receive"
+	case AttributeDirectionRead:
+		return "read"
+	case AttributeDirectionWrite:
+		return "write"
+	}
+	return ""
+}
+
+// MapAttributeDirection is a helper map of string to AttributeDirection attribute value.
+var MapAttributeDirection = map[string]AttributeDirection{
+	"transmit": AttributeDirectionTransmit,
+	"receive":  AttributeDirectionReceive,
+	"read":     AttributeDirectionRead,
+	"write":    AttributeDirectionWrite,
+}
+
+// AttributeState specifies the a value state attribute.
+type AttributeState int
+
+const (
+	_ AttributeState = iota
+	AttributeStateUser
+	AttributeStateSystem
+)
+
+// String returns the string representation of the AttributeState.
+func (av AttributeState) String() string {
+	switch av {
+	case AttributeStateUser:
+		return "user"
+	case AttributeStateSystem:
+		return "system"
+	}
+	return ""
+}
+
+// MapAttributeState is a helper map of string to AttributeState attribute value.
+var MapAttributeState = map[string]AttributeState{
+	"user":   AttributeStateUser,
+	"system": AttributeStateSystem,
+}
+
 type metricContainerBlockioIoServiceBytesRecursiveRead struct {
 	data     pmetric.Metric // data buffer for generated metric.
 	config   MetricConfig   // metric config provided by user.
@@ -156,6 +216,59 @@ func (m *metricContainerCPUPercent) emit(metrics pmetric.MetricSlice) {
 
 func newMetricContainerCPUPercent(cfg MetricConfig) metricContainerCPUPercent {
 	m := metricContainerCPUPercent{config: cfg}
+	if cfg.Enabled {
+		m.data = pmetric.NewMetric()
+		m.init()
+	}
+	return m
+}
+
+type metricContainerCPUTime struct {
+	data     pmetric.Metric // data buffer for generated metric.
+	config   MetricConfig   // metric config provided by user.
+	capacity int            // max observed number of data points added to the metric.
+}
+
+// init fills container.cpu.time metric with initial data.
+func (m *metricContainerCPUTime) init() {
+	m.data.SetName("container.cpu.time")
+	m.data.SetDescription("Total CPU time consumed by the container since its creation.")
+	m.data.SetUnit("s")
+	m.data.SetEmptySum()
+	m.data.Sum().SetIsMonotonic(true)
+	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
+	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
+}
+
+func (m *metricContainerCPUTime) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val float64, stateAttributeValue string) {
+	if !m.config.Enabled {
+		return
+	}
+	dp := m.data.Sum().DataPoints().AppendEmpty()
+	dp.SetStartTimestamp(start)
+	dp.SetTimestamp(ts)
+	dp.SetDoubleValue(val)
+	dp.Attributes().PutStr("state", stateAttributeValue)
+}
+
+// updateCapacity saves max length of data point slices that will be used for the slice capacity.
+func (m *metricContainerCPUTime) updateCapacity() {
+	if m.data.Sum().DataPoints().Len() > m.capacity {
+		m.capacity = m.data.Sum().DataPoints().Len()
+	}
+}
+
+// emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
+func (m *metricContainerCPUTime) emit(metrics pmetric.MetricSlice) {
+	if m.config.Enabled && m.data.Sum().DataPoints().Len() > 0 {
+		m.updateCapacity()
+		m.data.MoveTo(metrics.AppendEmpty())
+		m.init()
+	}
+}
+
+func newMetricContainerCPUTime(cfg MetricConfig) metricContainerCPUTime {
+	m := metricContainerCPUTime{config: cfg}
 	if cfg.Enabled {
 		m.data = pmetric.NewMetric()
 		m.init()
@@ -318,6 +431,59 @@ func newMetricContainerCPUUsageTotal(cfg MetricConfig) metricContainerCPUUsageTo
 	return m
 }
 
+type metricContainerDiskIo struct {
+	data     pmetric.Metric // data buffer for generated metric.
+	config   MetricConfig   // metric config provided by user.
+	capacity int            // max observed number of data points added to the metric.
+}
+
+// init fills container.disk.io metric with initial data.
+func (m *metricContainerDiskIo) init() {
+	m.data.SetName("container.disk.io")
+	m.data.SetDescription("Disk bytes for the container.")
+	m.data.SetUnit("By")
+	m.data.SetEmptySum()
+	m.data.Sum().SetIsMonotonic(true)
+	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
+	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
+}
+
+func (m *metricContainerDiskIo) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, directionAttributeValue string) {
+	if !m.config.Enabled {
+		return
+	}
+	dp := m.data.Sum().DataPoints().AppendEmpty()
+	dp.SetStartTimestamp(start)
+	dp.SetTimestamp(ts)
+	dp.SetIntValue(val)
+	dp.Attributes().PutStr("direction", directionAttributeValue)
+}
+
+// updateCapacity saves max length of data point slices that will be used for the slice capacity.
+func (m *metricContainerDiskIo) updateCapacity() {
+	if m.data.Sum().DataPoints().Len() > m.capacity {
+		m.capacity = m.data.Sum().DataPoints().Len()
+	}
+}
+
+// emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
+func (m *metricContainerDiskIo) emit(metrics pmetric.MetricSlice) {
+	if m.config.Enabled && m.data.Sum().DataPoints().Len() > 0 {
+		m.updateCapacity()
+		m.data.MoveTo(metrics.AppendEmpty())
+		m.init()
+	}
+}
+
+func newMetricContainerDiskIo(cfg MetricConfig) metricContainerDiskIo {
+	m := metricContainerDiskIo{config: cfg}
+	if cfg.Enabled {
+		m.data = pmetric.NewMetric()
+		m.init()
+	}
+	return m
+}
+
 type metricContainerMemoryPercent struct {
 	data     pmetric.Metric // data buffer for generated metric.
 	config   MetricConfig   // metric config provided by user.
@@ -360,6 +526,57 @@ func (m *metricContainerMemoryPercent) emit(metrics pmetric.MetricSlice) {
 
 func newMetricContainerMemoryPercent(cfg MetricConfig) metricContainerMemoryPercent {
 	m := metricContainerMemoryPercent{config: cfg}
+	if cfg.Enabled {
+		m.data = pmetric.NewMetric()
+		m.init()
+	}
+	return m
+}
+
+type metricContainerMemoryUsage struct {
+	data     pmetric.Metric // data buffer for generated metric.
+	config   MetricConfig   // metric config provided by user.
+	capacity int            // max observed number of data points added to the metric.
+}
+
+// init fills container.memory.usage metric with initial data.
+func (m *metricContainerMemoryUsage) init() {
+	m.data.SetName("container.memory.usage")
+	m.data.SetDescription("Memory usage of the container.")
+	m.data.SetUnit("By")
+	m.data.SetEmptySum()
+	m.data.Sum().SetIsMonotonic(false)
+	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
+}
+
+func (m *metricContainerMemoryUsage) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64) {
+	if !m.config.Enabled {
+		return
+	}
+	dp := m.data.Sum().DataPoints().AppendEmpty()
+	dp.SetStartTimestamp(start)
+	dp.SetTimestamp(ts)
+	dp.SetIntValue(val)
+}
+
+// updateCapacity saves max length of data point slices that will be used for the slice capacity.
+func (m *metricContainerMemoryUsage) updateCapacity() {
+	if m.data.Sum().DataPoints().Len() > m.capacity {
+		m.capacity = m.data.Sum().DataPoints().Len()
+	}
+}
+
+// emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
+func (m *metricContainerMemoryUsage) emit(metrics pmetric.MetricSlice) {
+	if m.config.Enabled && m.data.Sum().DataPoints().Len() > 0 {
+		m.updateCapacity()
+		m.data.MoveTo(metrics.AppendEmpty())
+		m.init()
+	}
+}
+
+func newMetricContainerMemoryUsage(cfg MetricConfig) metricContainerMemoryUsage {
+	m := metricContainerMemoryUsage{config: cfg}
 	if cfg.Enabled {
 		m.data = pmetric.NewMetric()
 		m.init()
@@ -462,6 +679,59 @@ func (m *metricContainerMemoryUsageTotal) emit(metrics pmetric.MetricSlice) {
 
 func newMetricContainerMemoryUsageTotal(cfg MetricConfig) metricContainerMemoryUsageTotal {
 	m := metricContainerMemoryUsageTotal{config: cfg}
+	if cfg.Enabled {
+		m.data = pmetric.NewMetric()
+		m.init()
+	}
+	return m
+}
+
+type metricContainerNetworkIo struct {
+	data     pmetric.Metric // data buffer for generated metric.
+	config   MetricConfig   // metric config provided by user.
+	capacity int            // max observed number of data points added to the metric.
+}
+
+// init fills container.network.io metric with initial data.
+func (m *metricContainerNetworkIo) init() {
+	m.data.SetName("container.network.io")
+	m.data.SetDescription("Network bytes for the container.")
+	m.data.SetUnit("By")
+	m.data.SetEmptySum()
+	m.data.Sum().SetIsMonotonic(true)
+	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
+	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
+}
+
+func (m *metricContainerNetworkIo) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, directionAttributeValue string) {
+	if !m.config.Enabled {
+		return
+	}
+	dp := m.data.Sum().DataPoints().AppendEmpty()
+	dp.SetStartTimestamp(start)
+	dp.SetTimestamp(ts)
+	dp.SetIntValue(val)
+	dp.Attributes().PutStr("direction", directionAttributeValue)
+}
+
+// updateCapacity saves max length of data point slices that will be used for the slice capacity.
+func (m *metricContainerNetworkIo) updateCapacity() {
+	if m.data.Sum().DataPoints().Len() > m.capacity {
+		m.capacity = m.data.Sum().DataPoints().Len()
+	}
+}
+
+// emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
+func (m *metricContainerNetworkIo) emit(metrics pmetric.MetricSlice) {
+	if m.config.Enabled && m.data.Sum().DataPoints().Len() > 0 {
+		m.updateCapacity()
+		m.data.MoveTo(metrics.AppendEmpty())
+		m.init()
+	}
+}
+
+func newMetricContainerNetworkIo(cfg MetricConfig) metricContainerNetworkIo {
+	m := metricContainerNetworkIo{config: cfg}
 	if cfg.Enabled {
 		m.data = pmetric.NewMetric()
 		m.init()
@@ -584,35 +854,31 @@ type MetricsBuilder struct {
 	metricContainerBlockioIoServiceBytesRecursiveRead  metricContainerBlockioIoServiceBytesRecursiveRead
 	metricContainerBlockioIoServiceBytesRecursiveWrite metricContainerBlockioIoServiceBytesRecursiveWrite
 	metricContainerCPUPercent                          metricContainerCPUPercent
+	metricContainerCPUTime                             metricContainerCPUTime
 	metricContainerCPUUsagePercpu                      metricContainerCPUUsagePercpu
 	metricContainerCPUUsageSystem                      metricContainerCPUUsageSystem
 	metricContainerCPUUsageTotal                       metricContainerCPUUsageTotal
+	metricContainerDiskIo                              metricContainerDiskIo
 	metricContainerMemoryPercent                       metricContainerMemoryPercent
+	metricContainerMemoryUsage                         metricContainerMemoryUsage
 	metricContainerMemoryUsageLimit                    metricContainerMemoryUsageLimit
 	metricContainerMemoryUsageTotal                    metricContainerMemoryUsageTotal
+	metricContainerNetworkIo                           metricContainerNetworkIo
 	metricContainerNetworkIoUsageRxBytes               metricContainerNetworkIoUsageRxBytes
 	metricContainerNetworkIoUsageTxBytes               metricContainerNetworkIoUsageTxBytes
 }
 
-// MetricBuilderOption applies changes to default metrics builder.
-type MetricBuilderOption interface {
-	apply(*MetricsBuilder)
-}
-
-type metricBuilderOptionFunc func(mb *MetricsBuilder)
-
-func (mbof metricBuilderOptionFunc) apply(mb *MetricsBuilder) {
-	mbof(mb)
-}
+// metricBuilderOption applies changes to default metrics builder.
+type metricBuilderOption func(*MetricsBuilder)
 
 // WithStartTime sets startTime on the metrics builder.
-func WithStartTime(startTime pcommon.Timestamp) MetricBuilderOption {
-	return metricBuilderOptionFunc(func(mb *MetricsBuilder) {
+func WithStartTime(startTime pcommon.Timestamp) metricBuilderOption {
+	return func(mb *MetricsBuilder) {
 		mb.startTime = startTime
-	})
+	}
 }
 
-func NewMetricsBuilder(mbc MetricsBuilderConfig, settings receiver.Settings, options ...MetricBuilderOption) *MetricsBuilder {
+func NewMetricsBuilder(mbc MetricsBuilderConfig, settings receiver.Settings, options ...metricBuilderOption) *MetricsBuilder {
 	mb := &MetricsBuilder{
 		config:        mbc,
 		startTime:     pcommon.NewTimestampFromTime(time.Now()),
@@ -621,12 +887,16 @@ func NewMetricsBuilder(mbc MetricsBuilderConfig, settings receiver.Settings, opt
 		metricContainerBlockioIoServiceBytesRecursiveRead:  newMetricContainerBlockioIoServiceBytesRecursiveRead(mbc.Metrics.ContainerBlockioIoServiceBytesRecursiveRead),
 		metricContainerBlockioIoServiceBytesRecursiveWrite: newMetricContainerBlockioIoServiceBytesRecursiveWrite(mbc.Metrics.ContainerBlockioIoServiceBytesRecursiveWrite),
 		metricContainerCPUPercent:                          newMetricContainerCPUPercent(mbc.Metrics.ContainerCPUPercent),
+		metricContainerCPUTime:                             newMetricContainerCPUTime(mbc.Metrics.ContainerCPUTime),
 		metricContainerCPUUsagePercpu:                      newMetricContainerCPUUsagePercpu(mbc.Metrics.ContainerCPUUsagePercpu),
 		metricContainerCPUUsageSystem:                      newMetricContainerCPUUsageSystem(mbc.Metrics.ContainerCPUUsageSystem),
 		metricContainerCPUUsageTotal:                       newMetricContainerCPUUsageTotal(mbc.Metrics.ContainerCPUUsageTotal),
+		metricContainerDiskIo:                              newMetricContainerDiskIo(mbc.Metrics.ContainerDiskIo),
 		metricContainerMemoryPercent:                       newMetricContainerMemoryPercent(mbc.Metrics.ContainerMemoryPercent),
+		metricContainerMemoryUsage:                         newMetricContainerMemoryUsage(mbc.Metrics.ContainerMemoryUsage),
 		metricContainerMemoryUsageLimit:                    newMetricContainerMemoryUsageLimit(mbc.Metrics.ContainerMemoryUsageLimit),
 		metricContainerMemoryUsageTotal:                    newMetricContainerMemoryUsageTotal(mbc.Metrics.ContainerMemoryUsageTotal),
+		metricContainerNetworkIo:                           newMetricContainerNetworkIo(mbc.Metrics.ContainerNetworkIo),
 		metricContainerNetworkIoUsageRxBytes:               newMetricContainerNetworkIoUsageRxBytes(mbc.Metrics.ContainerNetworkIoUsageRxBytes),
 		metricContainerNetworkIoUsageTxBytes:               newMetricContainerNetworkIoUsageTxBytes(mbc.Metrics.ContainerNetworkIoUsageTxBytes),
 		resourceAttributeIncludeFilter:                     make(map[string]filter.Filter),
@@ -658,7 +928,7 @@ func NewMetricsBuilder(mbc MetricsBuilderConfig, settings receiver.Settings, opt
 	}
 
 	for _, op := range options {
-		op.apply(mb)
+		op(mb)
 	}
 	return mb
 }
@@ -676,28 +946,20 @@ func (mb *MetricsBuilder) updateCapacity(rm pmetric.ResourceMetrics) {
 }
 
 // ResourceMetricsOption applies changes to provided resource metrics.
-type ResourceMetricsOption interface {
-	apply(pmetric.ResourceMetrics)
-}
-
-type resourceMetricsOptionFunc func(pmetric.ResourceMetrics)
-
-func (rmof resourceMetricsOptionFunc) apply(rm pmetric.ResourceMetrics) {
-	rmof(rm)
-}
+type ResourceMetricsOption func(pmetric.ResourceMetrics)
 
 // WithResource sets the provided resource on the emitted ResourceMetrics.
 // It's recommended to use ResourceBuilder to create the resource.
 func WithResource(res pcommon.Resource) ResourceMetricsOption {
-	return resourceMetricsOptionFunc(func(rm pmetric.ResourceMetrics) {
+	return func(rm pmetric.ResourceMetrics) {
 		res.CopyTo(rm.Resource())
-	})
+	}
 }
 
 // WithStartTimeOverride overrides start time for all the resource metrics data points.
 // This option should be only used if different start time has to be set on metrics coming from different resources.
 func WithStartTimeOverride(start pcommon.Timestamp) ResourceMetricsOption {
-	return resourceMetricsOptionFunc(func(rm pmetric.ResourceMetrics) {
+	return func(rm pmetric.ResourceMetrics) {
 		var dps pmetric.NumberDataPointSlice
 		metrics := rm.ScopeMetrics().At(0).Metrics()
 		for i := 0; i < metrics.Len(); i++ {
@@ -711,7 +973,7 @@ func WithStartTimeOverride(start pcommon.Timestamp) ResourceMetricsOption {
 				dps.At(j).SetStartTimestamp(start)
 			}
 		}
-	})
+	}
 }
 
 // EmitForResource saves all the generated metrics under a new resource and updates the internal state to be ready for
@@ -719,7 +981,7 @@ func WithStartTimeOverride(start pcommon.Timestamp) ResourceMetricsOption {
 // needs to emit metrics from several resources. Otherwise calling this function is not required,
 // just `Emit` function can be called instead.
 // Resource attributes should be provided as ResourceMetricsOption arguments.
-func (mb *MetricsBuilder) EmitForResource(options ...ResourceMetricsOption) {
+func (mb *MetricsBuilder) EmitForResource(rmo ...ResourceMetricsOption) {
 	rm := pmetric.NewResourceMetrics()
 	ils := rm.ScopeMetrics().AppendEmpty()
 	ils.Scope().SetName("github.com/open-telemetry/opentelemetry-collector-contrib/receiver/podmanreceiver")
@@ -728,17 +990,21 @@ func (mb *MetricsBuilder) EmitForResource(options ...ResourceMetricsOption) {
 	mb.metricContainerBlockioIoServiceBytesRecursiveRead.emit(ils.Metrics())
 	mb.metricContainerBlockioIoServiceBytesRecursiveWrite.emit(ils.Metrics())
 	mb.metricContainerCPUPercent.emit(ils.Metrics())
+	mb.metricContainerCPUTime.emit(ils.Metrics())
 	mb.metricContainerCPUUsagePercpu.emit(ils.Metrics())
 	mb.metricContainerCPUUsageSystem.emit(ils.Metrics())
 	mb.metricContainerCPUUsageTotal.emit(ils.Metrics())
+	mb.metricContainerDiskIo.emit(ils.Metrics())
 	mb.metricContainerMemoryPercent.emit(ils.Metrics())
+	mb.metricContainerMemoryUsage.emit(ils.Metrics())
 	mb.metricContainerMemoryUsageLimit.emit(ils.Metrics())
 	mb.metricContainerMemoryUsageTotal.emit(ils.Metrics())
+	mb.metricContainerNetworkIo.emit(ils.Metrics())
 	mb.metricContainerNetworkIoUsageRxBytes.emit(ils.Metrics())
 	mb.metricContainerNetworkIoUsageTxBytes.emit(ils.Metrics())
 
-	for _, op := range options {
-		op.apply(rm)
+	for _, op := range rmo {
+		op(rm)
 	}
 	for attr, filter := range mb.resourceAttributeIncludeFilter {
 		if val, ok := rm.Resource().Attributes().Get(attr); ok && !filter.Matches(val.AsString()) {
@@ -760,8 +1026,8 @@ func (mb *MetricsBuilder) EmitForResource(options ...ResourceMetricsOption) {
 // Emit returns all the metrics accumulated by the metrics builder and updates the internal state to be ready for
 // recording another set of metrics. This function will be responsible for applying all the transformations required to
 // produce metric representation defined in metadata and user config, e.g. delta or cumulative.
-func (mb *MetricsBuilder) Emit(options ...ResourceMetricsOption) pmetric.Metrics {
-	mb.EmitForResource(options...)
+func (mb *MetricsBuilder) Emit(rmo ...ResourceMetricsOption) pmetric.Metrics {
+	mb.EmitForResource(rmo...)
 	metrics := mb.metricsBuffer
 	mb.metricsBuffer = pmetric.NewMetrics()
 	return metrics
@@ -782,6 +1048,11 @@ func (mb *MetricsBuilder) RecordContainerCPUPercentDataPoint(ts pcommon.Timestam
 	mb.metricContainerCPUPercent.recordDataPoint(mb.startTime, ts, val)
 }
 
+// RecordContainerCPUTimeDataPoint adds a data point to container.cpu.time metric.
+func (mb *MetricsBuilder) RecordContainerCPUTimeDataPoint(ts pcommon.Timestamp, val float64, stateAttributeValue AttributeState) {
+	mb.metricContainerCPUTime.recordDataPoint(mb.startTime, ts, val, stateAttributeValue.String())
+}
+
 // RecordContainerCPUUsagePercpuDataPoint adds a data point to container.cpu.usage.percpu metric.
 func (mb *MetricsBuilder) RecordContainerCPUUsagePercpuDataPoint(ts pcommon.Timestamp, val int64, coreAttributeValue string) {
 	mb.metricContainerCPUUsagePercpu.recordDataPoint(mb.startTime, ts, val, coreAttributeValue)
@@ -797,9 +1068,19 @@ func (mb *MetricsBuilder) RecordContainerCPUUsageTotalDataPoint(ts pcommon.Times
 	mb.metricContainerCPUUsageTotal.recordDataPoint(mb.startTime, ts, val)
 }
 
+// RecordContainerDiskIoDataPoint adds a data point to container.disk.io metric.
+func (mb *MetricsBuilder) RecordContainerDiskIoDataPoint(ts pcommon.Timestamp, val int64, directionAttributeValue AttributeDirection) {
+	mb.metricContainerDiskIo.recordDataPoint(mb.startTime, ts, val, directionAttributeValue.String())
+}
+
 // RecordContainerMemoryPercentDataPoint adds a data point to container.memory.percent metric.
 func (mb *MetricsBuilder) RecordContainerMemoryPercentDataPoint(ts pcommon.Timestamp, val float64) {
 	mb.metricContainerMemoryPercent.recordDataPoint(mb.startTime, ts, val)
+}
+
+// RecordContainerMemoryUsageDataPoint adds a data point to container.memory.usage metric.
+func (mb *MetricsBuilder) RecordContainerMemoryUsageDataPoint(ts pcommon.Timestamp, val int64) {
+	mb.metricContainerMemoryUsage.recordDataPoint(mb.startTime, ts, val)
 }
 
 // RecordContainerMemoryUsageLimitDataPoint adds a data point to container.memory.usage.limit metric.
@@ -810,6 +1091,11 @@ func (mb *MetricsBuilder) RecordContainerMemoryUsageLimitDataPoint(ts pcommon.Ti
 // RecordContainerMemoryUsageTotalDataPoint adds a data point to container.memory.usage.total metric.
 func (mb *MetricsBuilder) RecordContainerMemoryUsageTotalDataPoint(ts pcommon.Timestamp, val int64) {
 	mb.metricContainerMemoryUsageTotal.recordDataPoint(mb.startTime, ts, val)
+}
+
+// RecordContainerNetworkIoDataPoint adds a data point to container.network.io metric.
+func (mb *MetricsBuilder) RecordContainerNetworkIoDataPoint(ts pcommon.Timestamp, val int64, directionAttributeValue AttributeDirection) {
+	mb.metricContainerNetworkIo.recordDataPoint(mb.startTime, ts, val, directionAttributeValue.String())
 }
 
 // RecordContainerNetworkIoUsageRxBytesDataPoint adds a data point to container.network.io.usage.rx_bytes metric.
@@ -824,9 +1110,9 @@ func (mb *MetricsBuilder) RecordContainerNetworkIoUsageTxBytesDataPoint(ts pcomm
 
 // Reset resets metrics builder to its initial state. It should be used when external metrics source is restarted,
 // and metrics builder should update its startTime and reset it's internal state accordingly.
-func (mb *MetricsBuilder) Reset(options ...MetricBuilderOption) {
+func (mb *MetricsBuilder) Reset(options ...metricBuilderOption) {
 	mb.startTime = pcommon.NewTimestampFromTime(time.Now())
 	for _, op := range options {
-		op.apply(mb)
+		op(mb)
 	}
 }

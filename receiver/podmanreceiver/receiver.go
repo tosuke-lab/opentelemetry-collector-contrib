@@ -152,15 +152,26 @@ func (r *metricsReceiver) recordCPUMetrics(now pcommon.Timestamp, stats *contain
 	for i, cpu := range stats.PerCPU {
 		r.mb.RecordContainerCPUUsagePercpuDataPoint(now, int64(toSecondsWithNanosecondPrecision(cpu)), fmt.Sprintf("cpu%d", i))
 	}
+
+	r.mb.RecordContainerCPUTimeDataPoint(now,
+		toSecondsWithNanosecondPrecisionF(stats.CPUNano-stats.CPUSystemNano),
+		metadata.AttributeStateUser)
+	r.mb.RecordContainerCPUTimeDataPoint(now,
+		toSecondsWithNanosecondPrecisionF(stats.CPUSystemNano),
+		metadata.AttributeStateSystem)
 }
 
 func (r *metricsReceiver) recordNetworkMetrics(now pcommon.Timestamp, stats *containerStats) {
-	r.mb.RecordContainerNetworkIoUsageRxBytesDataPoint(now, int64(stats.NetOutput))
-	r.mb.RecordContainerNetworkIoUsageTxBytesDataPoint(now, int64(stats.NetInput))
+	r.mb.RecordContainerNetworkIoUsageRxBytesDataPoint(now, int64(stats.NetInput))
+	r.mb.RecordContainerNetworkIoUsageTxBytesDataPoint(now, int64(stats.NetOutput))
+
+	r.mb.RecordContainerNetworkIoDataPoint(now, int64(stats.NetOutput), metadata.AttributeDirectionTransmit)
+	r.mb.RecordContainerNetworkIoDataPoint(now, int64(stats.NetInput), metadata.AttributeDirectionReceive)
 }
 
 func (r *metricsReceiver) recordMemoryMetrics(now pcommon.Timestamp, stats *containerStats) {
 	r.mb.RecordContainerMemoryUsageTotalDataPoint(now, int64(stats.MemUsage))
+	r.mb.RecordContainerMemoryUsageDataPoint(now, int64(stats.MemUsage))
 	r.mb.RecordContainerMemoryUsageLimitDataPoint(now, int64(stats.MemLimit))
 	r.mb.RecordContainerMemoryPercentDataPoint(now, stats.MemPerc)
 }
@@ -168,9 +179,16 @@ func (r *metricsReceiver) recordMemoryMetrics(now pcommon.Timestamp, stats *cont
 func (r *metricsReceiver) recordIOMetrics(now pcommon.Timestamp, stats *containerStats) {
 	r.mb.RecordContainerBlockioIoServiceBytesRecursiveReadDataPoint(now, int64(stats.BlockInput))
 	r.mb.RecordContainerBlockioIoServiceBytesRecursiveWriteDataPoint(now, int64(stats.BlockOutput))
+
+	r.mb.RecordContainerDiskIoDataPoint(now, int64(stats.BlockInput), metadata.AttributeDirectionRead)
+	r.mb.RecordContainerDiskIoDataPoint(now, int64(stats.BlockOutput), metadata.AttributeDirectionWrite)
 }
 
 // nanoseconds to seconds conversion truncating the fractional part
 func toSecondsWithNanosecondPrecision(nanoseconds uint64) uint64 {
 	return nanoseconds / 1e9
+}
+
+func toSecondsWithNanosecondPrecisionF(nanoseconds uint64) float64 {
+	return float64(nanoseconds) / 1e9
 }

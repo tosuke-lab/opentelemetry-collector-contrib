@@ -31,12 +31,16 @@ type MetricsConfig struct {
 	ContainerBlockioIoServiceBytesRecursiveRead  MetricConfig `mapstructure:"container.blockio.io_service_bytes_recursive.read"`
 	ContainerBlockioIoServiceBytesRecursiveWrite MetricConfig `mapstructure:"container.blockio.io_service_bytes_recursive.write"`
 	ContainerCPUPercent                          MetricConfig `mapstructure:"container.cpu.percent"`
+	ContainerCPUTime                             MetricConfig `mapstructure:"container.cpu.time"`
 	ContainerCPUUsagePercpu                      MetricConfig `mapstructure:"container.cpu.usage.percpu"`
 	ContainerCPUUsageSystem                      MetricConfig `mapstructure:"container.cpu.usage.system"`
 	ContainerCPUUsageTotal                       MetricConfig `mapstructure:"container.cpu.usage.total"`
+	ContainerDiskIo                              MetricConfig `mapstructure:"container.disk.io"`
 	ContainerMemoryPercent                       MetricConfig `mapstructure:"container.memory.percent"`
+	ContainerMemoryUsage                         MetricConfig `mapstructure:"container.memory.usage"`
 	ContainerMemoryUsageLimit                    MetricConfig `mapstructure:"container.memory.usage.limit"`
 	ContainerMemoryUsageTotal                    MetricConfig `mapstructure:"container.memory.usage.total"`
+	ContainerNetworkIo                           MetricConfig `mapstructure:"container.network.io"`
 	ContainerNetworkIoUsageRxBytes               MetricConfig `mapstructure:"container.network.io.usage.rx_bytes"`
 	ContainerNetworkIoUsageTxBytes               MetricConfig `mapstructure:"container.network.io.usage.tx_bytes"`
 }
@@ -52,6 +56,9 @@ func DefaultMetricsConfig() MetricsConfig {
 		ContainerCPUPercent: MetricConfig{
 			Enabled: true,
 		},
+		ContainerCPUTime: MetricConfig{
+			Enabled: true,
+		},
 		ContainerCPUUsagePercpu: MetricConfig{
 			Enabled: true,
 		},
@@ -61,13 +68,22 @@ func DefaultMetricsConfig() MetricsConfig {
 		ContainerCPUUsageTotal: MetricConfig{
 			Enabled: true,
 		},
+		ContainerDiskIo: MetricConfig{
+			Enabled: true,
+		},
 		ContainerMemoryPercent: MetricConfig{
+			Enabled: true,
+		},
+		ContainerMemoryUsage: MetricConfig{
 			Enabled: true,
 		},
 		ContainerMemoryUsageLimit: MetricConfig{
 			Enabled: true,
 		},
 		ContainerMemoryUsageTotal: MetricConfig{
+			Enabled: true,
+		},
+		ContainerNetworkIo: MetricConfig{
 			Enabled: true,
 		},
 		ContainerNetworkIoUsageRxBytes: MetricConfig{
