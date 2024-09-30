@@ -113,7 +113,7 @@ func assertStatsEqualToMetrics(t *testing.T, podmanStats *containerStats, md pme
 			})
 
 		default:
-			t.Errorf(fmt.Sprintf("unexpected metric: %s", m.Name()))
+			t.Errorf("unexpected metric: %s", m.Name())
 		}
 	}
 }
