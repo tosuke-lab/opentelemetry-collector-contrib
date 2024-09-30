@@ -23,7 +23,7 @@ type point struct {
 }
 
 func assertStatsEqualToMetrics(t *testing.T, podmanStats *containerStats, md pmetric.Metrics) {
-	assert.Equal(t, md.ResourceMetrics().Len(), 1)
+	assert.Equal(t, 1, md.ResourceMetrics().Len())
 	rsm := md.ResourceMetrics().At(0)
 
 	resourceAttrs := map[string]string{
@@ -38,10 +38,10 @@ func assertStatsEqualToMetrics(t *testing.T, podmanStats *containerStats, md pme
 		assert.Equal(t, v, attr.Str())
 	}
 
-	assert.Equal(t, rsm.ScopeMetrics().Len(), 1)
+	assert.Equal(t, 1, rsm.ScopeMetrics().Len())
 
 	metrics := rsm.ScopeMetrics().At(0).Metrics()
-	assert.Equal(t, metrics.Len(), 15)
+	assert.Equal(t, 15, metrics.Len())
 
 	for i := 0; i < metrics.Len(); i++ {
 		m := metrics.At(i)
@@ -143,19 +143,20 @@ func assertMetricEqual(t *testing.T, m pmetric.Metric, dt pmetric.MetricType, pt
 func assertPoints(t *testing.T, dpts pmetric.NumberDataPointSlice, pts []point) {
 	t.Helper()
 
-	assert.Equal(t, dpts.Len(), len(pts))
+	assert.Len(t, pts, dpts.Len())
+
 	for i, expected := range pts {
 		got := dpts.At(i)
 		assert.Equal(t, got.IntValue(), int64(expected.intVal))
 		if expected.epsilon != 0 {
-			assert.InEpsilon(t, got.DoubleValue(), expected.doubleVal, expected.epsilon)
+			assert.InEpsilon(t, expected.doubleVal, got.DoubleValue(), expected.epsilon)
 		} else {
-			assert.Equal(t, got.DoubleValue(), expected.doubleVal)
+			assert.Equal(t, expected.doubleVal, got.DoubleValue())
 		}
 		for k, expectedV := range expected.attributes {
 			gotV, exists := got.Attributes().Get(k)
 			assert.True(t, exists)
-			assert.Equal(t, gotV.Str(), expectedV)
+			assert.Equal(t, expectedV, gotV.Str())
 		}
 	}
 }
